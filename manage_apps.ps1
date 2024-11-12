@@ -233,43 +233,64 @@ function Update-App {
 function Add-App {
     $appName = Read-Host "Enter app name"
     $appType = Read-Host "Enter app type (Streamlit/Django/Flask)"
+    if ($appType) {
+        $appType = $appType.Substring(0, 1).ToUpper() + $appType.Substring(1).ToLower()
+    }
     $appPath = Read-Host "Enter app path"
     $indexPath = Read-Host "Enter index path (main script for the app)"
 
     # Search for virtual environment directory
     $venvResponse = Read-Host "Is virtual environment directory named 'venv'? (Yes/No)"
-    if ($venvResponse -ieq "yes") {
+    if ($venvResponse -ieq "yes") { # Search for 'venv' directory in the app path
         $venvDirectories = Get-ChildItem -Path $appPath -Recurse -Directory -Filter "venv"
         if ($venvDirectories) {
             $venvPath = Join-Path $appPath $venvDirectories[0].FullName
         } else {
             Write-Host "No 'venv' directory found in '$appPath'. Please specify the virtual environment path."
-            $venvPath = Read-Host "Enter the virtual environment path"
+            do { # Keep asking until a valid path is entered
+                $venvPath = Read-Host "Enter the virtual environment path"
+                if (-not (Test-Path $venvPath)) {
+                    Write-Host "The specified virtual environment path '$venvPath' does not exist. Please enter a valid path."
+                }
+            } while (-not (Test-Path $venvPath))
         }
     } else {
         $venvResponse = Read-Host "Enter the name of the virtual environment directory"
         $venvDirectories = Get-ChildItem -Path $appPath -Recurse -Directory -Filter $venvResponse
         if ($venvDirectories) {
             $venvPath = Join-Path $appPath $venvDirectories[0].FullName
-        } else {
+        } else { 
             Write-Host "No '$venvResponse' directory found in '$appPath'. Please specify the virtual environment path."
-            $venvPath = Read-Host "Enter virtual environment path"
+            do { # Keep asking until a valid path is entered
+                $venvPath = Read-Host "Enter virtual environment path"
+                if (-not (Test-Path $venvPath)) {
+                    Write-Host "The specified virtual environment path '$venvPath' does not exist. Please enter a valid path."
+                }
+            } while (-not (Test-Path $venvPath))
         }
     }
     
     # Set the port number
     $portResponse = Read-Host "Would you like to assign a random port for this app? (Yes/No)"
     if ($portResponse -ieq "yes") {
-        do {
+        do { # Keep generating a random port until an unused port is found
             $port = Get-Random -Minimum 3000 -Maximum 9000
             $portCheck = Test-NetConnection -ComputerName "localhost" -Port $port
         } while ($portCheck.TcpTestSucceeded -eq $true)
     } else {
-        do {
-            $port = [int](Read-Host "Enter a specific port number")
-            $portCheck = Test-NetConnection -ComputerName "localhost" -Port $Port
-            if ($portCheck.TcpTestSucceeded -eq $true) {
-                Write-Host "Port $Port is already in use. Please enter a different port."
+        do { # Keep asking until an unused port is entered
+            $port = [int](Read-Host "Enter a specific port number (or 'help' to use a random port)")
+            if ($port -eq "help") {
+                Write-Host "Generating a random port number..."
+                do {
+                    $port = Get-Random -Minimum 3000 -Maximum 9000
+                    $portCheck = Test-NetConnection -ComputerName "localhost" -Port $port
+                } while ($portCheck.TcpTestSucceeded -eq $true)
+            } else {
+                $portCheck = Test-NetConnection -ComputerName "localhost" -Port $Port
+                if ($portCheck.TcpTestSucceeded -eq $true) {
+                    Write-Host "Port $Port is already in use. Please enter a different port."
+                }
             }
         } while ($portCheck.TcpTestSucceeded -eq $true)
     }
@@ -299,8 +320,129 @@ function Add-App {
     }
 }
 
+# Update an app setting
+function Update-AppSetting {
+    param(
+        [string]$appName
+    )
+
+    $app = $apps | Where-Object { $_.Name -ieq $appName } # Case-insensitive comparison
+    if ($null -eq $app) {
+        Write-Output "App '$appName' not found."
+        return
+    }
+
+    $updateApp = $false
+    Write-Output "Updating app '$appName'..."
+    Write-Output "Update the app settings (press Enter to keep the existing value):"
+    
+    Write-Host "Current app type: $($app.Type)"
+    $appType = Read-Host "Enter app type (Streamlit/Django/Flask)"
+    if ($appType) { 
+        $appType = $appType.Substring(0, 1).ToUpper() + $appType.Substring(1).ToLower()
+        $app.Type = $appType 
+        $updateApp = $true
+    }
+
+    Write-Host "Current app path: $($app.AppPath)"
+    $appPath = Read-Host "Enter app path (press Enter to keep the existing value):"
+    if ($appPath) { 
+        while (-not (Test-Path $appPath)) { # Keep asking until a valid path is entered
+            Write-Host "The specified path '$appPath' does not exist. Please enter a valid path."
+            $appPath = Read-Host "Enter app path"
+        }
+        $app.AppPath = $appPath 
+        $updateApp = $true
+    }
+
+    Write-Host "Current index path: $($app.IndexPath)"
+    $indexPath = Read-Host "Enter index path (main script for the app)"
+    if ($indexPath) { 
+        $indexCompletePath = Join-Path $appPath $indexPath
+        while (-not (Test-Path $indexCompletePath)) { # Keep asking until a valid path is entered
+            Write-Host "The specified index path '$indexPath' does not exist. Please enter a valid path."
+            $indexPath = Read-Host "Enter index path"
+            $indexCompletePath = Join-Path $appPath $indexPath
+        }
+        $app.IndexPath = $indexPath 
+        $updateApp = $true    
+    }
+
+    Write-Host "Current virtual environment path: $($app.VenvPath)"
+    $venvResponse = Read-Host "Would you like to update the virtual environment path? (Yes/No)"
+    if ($venvResponse -ieq "yes") {
+        $venvResponse = Read-Host "Is virtual environment directory named 'venv'? (Yes/No)"
+        if ($venvResponse -ieq "yes") { # Search for 'venv' directory in the app path
+            $venvDirectories = Get-ChildItem -Path $appPath -Recurse -Directory -Filter "venv"
+            if ($venvDirectories) {
+                $venvPath = Join-Path $appPath $venvDirectories[0].FullName
+            } else {
+                Write-Host "No 'venv' directory found in '$appPath'. Please specify the virtual environment path."
+                do { # Keep asking until a valid path is entered
+                    $venvPath = Read-Host "Enter the virtual environment path"
+                    if (-not (Test-Path $venvPath)) {
+                        Write-Host "The specified virtual environment path '$venvPath' does not exist. Please enter a valid path."
+                    }
+                } while (-not (Test-Path $venvPath))
+            }
+        } else {
+            $venvResponse = Read-Host "Enter the name of the virtual environment directory"
+            $venvDirectories = Get-ChildItem -Path $appPath -Recurse -Directory -Filter $venvResponse
+            if ($venvDirectories) {
+                $venvPath = Join-Path $appPath $venvDirectories[0].FullName
+            } else {
+                Write-Host "No '$venvResponse' directory found in '$appPath'. Please specify the virtual environment path."
+                do { # Keep asking until a valid path is entered
+                    $venvPath = Read-Host "Enter virtual environment path"
+                    if (-not (Test-Path $venvPath)) {
+                        Write-Host "The specified virtual environment path '$venvPath' does not exist. Please enter a valid path."
+                    }
+                } while (-not (Test-Path $venvPath))
+            }
+        }
+        $app.VenvPath = $venvPath
+        $updateApp = $true
+    } else {
+        Write-Host "Virtual environment path not updated."
+    }
+    
+    # Set the port number
+    Write-Host "Current port number: $($app.Port)"
+    $portResponse = Read-Host "Would you like to update the port number? (Yes/No)"
+    if ($portResponse -ieq "yes") {
+        $portResponse = Read-Host "Would you like to assign a random port for this app? (Yes/No)"
+        if ($portResponse -ieq "yes") {
+            do { # Keep generating a random port until an unused port is found
+                $port = Get-Random -Minimum 3000 -Maximum 9000
+                $portCheck = Test-NetConnection -ComputerName "localhost" -Port $port
+            } while ($portCheck.TcpTestSucceeded -eq $true)
+        } else {
+            do { # Keep asking until an unused port is entered
+                $port = [int](Read-Host "Enter a specific port number (or 'help' to use a random port)")
+                if ($port -eq "help") {
+                    Write-Host "Generating a random port number..."
+                    do {
+                        $port = Get-Random -Minimum 3000 -Maximum 9000
+                        $portCheck = Test-NetConnection -ComputerName "localhost" -Port $port
+                    } while ($portCheck.TcpTestSucceeded -eq $true)
+                } else {
+                    $portCheck = Test-NetConnection -ComputerName "localhost" -Port $Port
+                    if ($portCheck.TcpTestSucceeded -eq $true) {
+                        Write-Host "Port $Port is already in use. Please enter a different port."
+                    }
+                }
+            } while ($portCheck.TcpTestSucceeded -eq $true)
+        }
+        $app.Port = $port
+        $updateApp = $true
+    } else {
+        Write-Host "Port number not updated."
+    }
+}
+
 # Show the menu
 function Show-Menu {
+    Write-Output "=============================="
     Write-Output "Select an option:"
     Write-Output "1. List all apps"
     Write-Output "2. Start all apps"
@@ -309,7 +451,9 @@ function Show-Menu {
     Write-Output "5. Stop an app"
     Write-Output "6. Git pull an app"
     Write-Output "7. Add a new app"
+    Write-Output "8. Update an app setting"
     Write-Output "0. Exit"
+    Write-Output "=============================="
 }
 
 # Main function
@@ -361,8 +505,16 @@ function Main {
                 }
                 Update-App -appName $appName
             }
-            7{
+            7 {
                 Add-App
+            }
+            8 {
+                Show-Apps
+                $appName = Read-Host "Enter app name to restart (or 'back' to go back to menu)"
+                if ($appName -ieq "back") {
+                    continue
+                }
+                Update-AppSetting -appName $appName
             }
             0 {
                 Write-Output "Exiting..."
