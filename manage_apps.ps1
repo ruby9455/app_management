@@ -1,11 +1,10 @@
-# Define the path to the JSON file
+# Load the apps list from JSON file if it exists, otherwise create an empty list
 $jsonFilePath = "$PSScriptRoot\apps.json"
 
-# Load the apps list from JSON file if it exists
 if (Test-Path $jsonFilePath) {
     $global:apps = Get-Content -Path $jsonFilePath | ConvertFrom-Json
 } else {
-    $global:apps = @()  # Initialize as empty array if no file exists
+    $global:apps = @()
 }
 
 # Functions
