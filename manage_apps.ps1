@@ -1,5 +1,5 @@
 # Load the apps list from JSON file if it exists, otherwise create an empty list
-$jsonFilePath = "$PSScriptRoot\apps.json"
+$jsonFilePath = "$PSScriptRoot\apps_test.json"
 
 if (Test-Path $jsonFilePath) {
     $global:apps = Get-Content -Path $jsonFilePath | ConvertFrom-Json
@@ -349,7 +349,7 @@ function Add-AppSetting {
     if ($appType -ieq "streamlit" -or $appType -ieq "flask") {
         $indexPath = Read-Host "Enter index path (main script for the app)"
     }
-    $venvPath = Get-VenvDirectories -appPath $appPath
+    $venvPath = Get-VenvDirectory -appPath $appPath
     $portNum = Get-PortNumber
 
     $newApp = @{
