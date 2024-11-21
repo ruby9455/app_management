@@ -2,8 +2,12 @@
 $jsonFilePath = "$PSScriptRoot\apps_test.json"
 
 if (Test-Path $jsonFilePath) {
-    $global:apps = Get-Content -Path $jsonFilePath | ConvertFrom-Json
-    $global:apps = $global:apps | Where-Object { $_.Name -notmatch "deprecated" }
+    if ((Get-Item $jsonFilePath).Length -eq 0) {
+        $global:apps = @()
+    } else {
+        $global:apps = Get-Content $jsonFilePath | ConvertFrom-Json
+        $global:apps = $global:apps | Where-Object { $_.Name -notmatch "deprecated" }
+    }    
 } else {
     $global:apps = @()
 }
@@ -236,8 +240,8 @@ function Get-VenvDirectory {
     Param (
         [string]$appPath
     )
-    $venvResponse = Read-Host "Is the virtual environment '*venv*' in the app directory? (Yes/No)"
-    if ($venvResponse -ieq 'yes') {
+    $venvResponse = Read-Host "Is the virtual environment '*venv*' in the app directory? (y/n)"
+    if ($venvResponse -ieq 'yes' -or $venvResponse -ieq 'y') {
         $venvDirectories = Get-ChildItem -Path $appPath -Recurse -Directory -Filter "*venv*"
         if ($venvDirectories.Count -eq 0) { # No 'venv' directory found
             Write-Output "No 'venv' directory found in the app directory."
@@ -298,8 +302,8 @@ function Get-VenvDirectory {
 
 # Get the port number for the app - helper function for Add-AppSetting and Update-AppSetting
 function Get-PortNumber {
-    $portResponse = Read-Host "Would you like to assign a random port for this app? (Yes/No)"
-    if ($portResponse -ieq "yes") {
+    $portResponse = Read-Host "Would you like to assign a random port for this app? (y/n)"
+    if ($portResponse -ieq "yes" -or $portResponse -ieq "y") {
         do { # Keep generating a random port until an unused port is found
             $port = Get-Random -Minimum 3000 -Maximum 9000
             $portCheck = Test-NetConnection -ComputerName "localhost" -Port $port
@@ -339,20 +343,20 @@ function Update-Json {
 # Add a new app
 function Add-AppSetting {
     Write-Host "===== Add App Setting ====="
-    $appName = Read-Host "Enter app name"
-    $appType = Read-Host "Enter app type (Streamlit/Django/Flask)"
+    $appName = Read-Host ">>> Enter app name"
+    $appType = Read-Host ">>> Enter app type, can be either Streamlit/Django/Flask (s/d/f)"
     if ($appType) {
         $appType = $appType.Substring(0, 1).ToUpper() + $appType.Substring(1).ToLower()
     }
     $appPath = Read-Host "Enter app path"
     # if the appType is either Streamlit or Flask
     if ($appType -ieq "streamlit" -or $appType -ieq "flask") {
-        $indexPath = Read-Host "Enter index path (main script for the app)"
+        $indexPath = Read-Host ">>> Enter index path (main script for the app)"
     }
     $venvPath = Get-VenvDirectory -appPath $appPath
     $portNum = Get-PortNumber
 
-    $newApp = @{
+    $newApp = [PSCustomObject]@{
         Name = $appName
         Type = $appType
         VenvPath = $venvPath
@@ -361,11 +365,22 @@ function Add-AppSetting {
         Port = $portNum
     }
 
-    $global:apps += $newApp
+    if (-not ($global:apps)) {
+        Write-Host "Apps is empty"
+        $global:apps = @(@($newApp))
+    } else {
+        Write-Host "Apps is not empty"
+        if ($global:apps -is [PSCustomObject]) {
+            Write-Output "global:apps is a PSCustomObject"
+            $global:apps = @(@($global:apps))
+        }
+        $global:apps += $newApp
+    }
+
     Write-Output "App '$appName' added successfully."
 
-    $saveResponse = Read-Host "Would you like to save the updated apps list to the JSON file? (Yes/No)"
-    if ($saveResponse -ieq "yes") {
+    $saveResponse = Read-Host ">>> Would you like to save the updated apps list to the JSON file? (y/n)"
+    if ($saveResponse -ieq "yes" -or $saveResponse -ieq "y") {
         Update-Json
     }
 }
@@ -387,14 +402,14 @@ function Update-AppSetting {
     Write-Output "Update the app settings (press Enter to keep the existing value):"
 
     Write-Host "Current app name: $($app.Name)"
-    $newAppName = Read-Host "Enter app name (press Enter to keep the existing value)"
-    if ($newAppName -and $newAppName -ne $app.Name) {
+    $newAppName = Read-Host ">>> Enter app name (press Enter to keep the existing value)"
+    if ($newAppName -and $newAppName -cne $app.Name) {
         $app.Name = $newAppName
         $updateApp = $true
     }
 
     Write-Host "Current app type: $($app.Type)"
-    $newAppType = Read-Host "Enter app type (Streamlit/Django/Flask) (press Enter to keep the existing value)"
+    $newAppType = Read-Host ">>> Enter app type, can be either Streamlit/Django/Flask (s/d/f) (press Enter to keep the existing value)"
     if ($newAppType -and $newAppType -ne $app.Type) {
         $newAppType = $newAppType.Substring(0, 1).ToUpper() + $newAppType.Substring(1).ToLower()
         $app.Type = $newAppType
@@ -402,7 +417,7 @@ function Update-AppSetting {
     }
 
     Write-Host "Current app path: $($app.AppPath)"
-    $newAppPath = Read-Host "Enter app path (press Enter to keep the existing value)"
+    $newAppPath = Read-Host ">>> Enter app path (press Enter to keep the existing value)"
     if ($newAppPath -and $newAppPath -ne $app.AppPath) {
         $app.AppPath = $newAppPath
         $updateApp = $true
@@ -410,7 +425,7 @@ function Update-AppSetting {
 
     if ($app.Type -ieq "streamlit" -or $app.Type -ieq "flask") {
         Write-Host "Current index path: $($app.IndexPath)"
-        $newIndexPath = Read-Host "Enter index path (main script for the app) (press Enter to keep the existing value)"
+        $newIndexPath = Read-Host ">>> Enter index path (main script for the app) (press Enter to keep the existing value)"
         if ($newIndexPath -and $newIndexPath -ne $app.IndexPath) {
             $app.IndexPath = $newIndexPath
             $updateApp = $true
@@ -423,8 +438,8 @@ function Update-AppSetting {
     }
 
     Write-Host "Current virtual environment path: $($app.VenvPath)"
-    $venvPathResponse = Read-Host "Would you like to update the virtual environment path? (Yes/No)"
-    if ($venvPathResponse -ieq "yes") {
+    $venvPathResponse = Read-Host ">>> Would you like to update the virtual environment path? (y/n)"
+    if ($venvPathResponse -ieq "yes" -or $venvPathResponse -ieq "y") {
         $newVenvPath = Get-VenvDirectory -appPath $app.AppPath
         if ($newVenvPath -and $newVenvPath -ne $app.VenvPath) {
             $app.VenvPath = $newVenvPath
@@ -433,8 +448,8 @@ function Update-AppSetting {
     }
     
     Write-Host "Current port number: $($app.Port)"
-    $portResponse = Read-Host "Would you like to update the port number? (Yes/No)"
-    if ($portResponse -ieq "yes") {
+    $portResponse = Read-Host ">>> Would you like to update the port number? (y/n)"
+    if ($portResponse -ieq "yes" -or $portResponse -ieq "y") {
         $newPortNum = Get-PortNumber
         if ($newPortNum -and $newPortNum -ne $app.Port) {
             $app.Port = $newPortNum
@@ -444,8 +459,8 @@ function Update-AppSetting {
 
     if ($updateApp) {
         Write-Output "App '$appName' updated successfully."
-        $saveResponse = Read-Host "Would you like to save the updated apps list to the JSON file? (Yes/No)"
-        if ($saveResponse -ieq "yes") {
+        $saveResponse = Read-Host ">>> Would you like to save the updated apps list to the JSON file? (y/n)"
+        if ($saveResponse -ieq "yes" -or $saveResponse -ieq "y") {
             Update-Json
         }
     } else {
