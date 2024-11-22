@@ -139,7 +139,8 @@ function Get-IndexPyFile {
     
     $allPyFiles = Get-AllUniquePyFile -ProjectDirectory $ProjectDirectory
     for ($i = 0; $i -lt $allPyFiles.Length; $i++) {
-        Write-Host "$($i+1): $($allPyFiles[$i])"
+        $relativePath = $allPyFiles[$i] -replace [regex]::Escape($ProjectDirectory), ''
+        Write-Host "$($i+1): $relativePath"
     }
     $indexPage = [int](Read-Host "Enter the index of the index python file")
     $indexPage = $indexPage - 1
@@ -193,7 +194,7 @@ function Get-PortNumber {
 }
 
 # Function to save as JSON file
-function Set-Json {
+function Save-Json {
     param (
         [string]$jsonFilePath = "apps.json"
     )
@@ -255,5 +256,5 @@ foreach ($projectDirectory in $projectDirectories) {
     $global:apps += $newApp
 }
 
-Set-Json -jsonFilePath "apps.json"
+Save-Json -jsonFilePath "apps.json"
 Write-Host "Configuration saved successfully."
