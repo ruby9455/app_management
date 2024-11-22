@@ -199,6 +199,7 @@ function Restart-App {
     param(
         [string]$appName
     )
+
     Write-Host "===== Restart App ====="
     $app = $apps | Where-Object { $_.Name -ieq $appName } # Case-insensitive comparison
     if ($null -eq $app) {
@@ -233,6 +234,22 @@ function Update-AppRepo {
     git pull
     Pop-Location
     Write-Output "App '$appName' updated successfully with 'git pull'."
+}
+
+function Update-App {
+    param(
+        [string]$appName
+    )
+
+    Write-Host "===== Update App ====="
+    $app = $apps | Where-Object { $_.Name -ieq $appName } # Case-insensitive comparison
+    if ($null -eq $app) {
+        Write-Output "App '$appName' not found."
+        return
+    }
+
+    Update-AppRepo -appName $appName
+    Restart-App -appName $appName
 }
 
 # Get the default app name from the app path
@@ -593,8 +610,9 @@ function Show-Menu {
     Write-Output "4. Start an app"
     Write-Output "5. Stop an app"
     Write-Output "6. Git pull an app"
-    Write-Output "7. Add a new app"
-    Write-Output "8. Update an app setting"
+    Write-Output "7. Update an app"
+    Write-Output "8. Add a new app"
+    Write-Output "9. Update an app setting"
     Write-Output "0. Exit"
     Write-Output "=============================="
 }
@@ -652,9 +670,18 @@ function Main {
                 Update-AppRepo -appName $appName
             }
             7 {
-                Add-AppSetting
+                Show-Apps
+                Write-Host "===================="
+                $appName = Read-Host "Enter app name to update (or 'back' to go back to menu)"
+                if ($appName -ieq "back") {
+                    continue
+                }
+                Update-App -appName $appName
             }
             8 {
+                Add-AppSetting
+            }
+            9 {
                 Show-Apps
                 Write-Host "===================="
                 $appName = Read-Host "Enter app name to restart (or 'back' to go back to menu)"
