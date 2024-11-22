@@ -1,6 +1,6 @@
 $global:apps = @()
 
-$newApp1 = [PSCustomObject]@{
+$newApp1 = [hashtable]@{
     Name = "YSS"
     Type = "Streamlit"
     VenvPath = "C:\Users\user_name\code\preoject2\venv"
@@ -28,11 +28,16 @@ Write-Output "Count of apps: $($global:apps.Count)"
 # Read the JSON string back into global:apps
 $global:apps = $jsonApps | ConvertFrom-Json
 
+# Ensure that $global:apps is an array after reading back from JSON
+if ($global:apps -isnot [array]) {
+    $global:apps = @($global:apps)
+}
+
 Write-Output "Apps read back from JSON:"
 Write-Output $global:apps
 Write-Output "Type of global:apps: $($global:apps.GetType().FullName)"
 
-$newApp2 = [PSCustomObject]@{
+$newApp2 = [hashtable]@{
     Name = "LOS"
     Type = "Streamlit"
     VenvPath = "C:\Users\user_name\code\project1\venv"
@@ -41,8 +46,8 @@ $newApp2 = [PSCustomObject]@{
     Port = 8937
 }
 
-if ($global:apps -is [PSCustomObject]) {
-    Write-Output "global:apps is a PSCustomObject"
+if ($global:apps -is [hashtable]) {
+    Write-Output "global:apps is a hashtable"
     $global:apps = @(@($global:apps))
 }
 Write-Output "Apps after conversion: $($global:apps)"
