@@ -492,8 +492,9 @@ function Show-Menu {
     Write-Output "4. Start an app"
     Write-Output "5. Stop an app"
     Write-Output "6. Git pull an app"
-    Write-Output "7. Add a new app"
-    Write-Output "8. Update an app setting"
+    Write-Output "7. Update an app"
+    Write-Output "8. Add a new app"
+    Write-Output "9. Update an app setting"
     Write-Output "0. Exit"
     Write-Output "=============================="
 }
