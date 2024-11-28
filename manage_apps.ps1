@@ -6,6 +6,10 @@ if (Test-Path $jsonFilePath) {
         $global:apps = @()
     } else {
         $global:apps = Get-Content $jsonFilePath | ConvertFrom-Json
+        # Ensure that $global:apps is an array after reading back from JSON
+        if ($global:apps -isnot [array]) {
+            $global:apps = @($global:apps)
+        }
         $global:apps = $global:apps | Where-Object { $_.Name -notmatch "deprecated" }
     }    
 } else {
@@ -117,6 +121,20 @@ function Start-FlaskApp {
     Start-Process "cmd.exe" -ArgumentList "/k", "flask run --host=0.0.0.0 --port $appPort" -WorkingDirectory $appPath
 }
 
+# Convert a PSObject to a hashtable
+function ConvertTo-Hashtable {
+    param (
+        [Parameter(Mandatory=$true)]
+        [pscustomobject]$Object
+    )
+
+    $hashtable = @{}
+    foreach ($property in $Object.PSObject.Properties) {
+        $hashtable[$property.Name] = $property.Value
+    }
+    return $hashtable
+}
+
 # Start an app
 function Start-App {
     param (
@@ -126,6 +144,14 @@ function Start-App {
     $app = $apps | Where-Object { $_.Name -ieq $appName } # Case-insensitive comparison
     if ($null -eq $app) {
         Write-Output "App '$appName' not found."
+        return
+    }
+
+    # Convert $app to a hashtable
+    $app = ConvertTo-Hashtable -Object $app
+
+    if (-not ($app -is [hashtable])) {
+        Write-Output "Failed to convert app to hashtable."
         return
     }
     
@@ -235,6 +261,54 @@ function Update-AppRepo {
     Write-Output "App '$appName' updated successfully with 'git pull'."
 }
 
+function Update-Venv {
+    param(
+        [string]$appName
+    )
+
+    Write-Host "===== Update Virtual Environment ====="
+    $app = $apps | Where-Object { $_.Name -ieq $appName } # Case-insensitive comparison
+    if ($null -eq $app) {
+        Write-Output "App '$appName' not found."
+        return
+    }
+
+    $appPath = $app.AppPath
+    $venvPath = $app.VenvPath
+    $appRequirements = $app.appRequirements
+    
+    if (-not $appRequirements) {
+        # Search for requirements.txt file in the project directory and its subdirectories
+        $requirementsFile = Get-ChildItem -Path $appPath -Recurse -Filter "requirements.txt" -ErrorAction SilentlyContinue | Select-Object -First 1
+
+        if ($null -eq $requirementsFile) {
+            do {
+                $requirementsFilePath = Read-Host "Enter the path to the requirements file (e.g., 'C:\path\to\requirements.txt')"
+                if (-not (Test-Path $requirementsFilePath)) {
+                    Write-Output "File '$requirementsFilePath' does not exist. Please enter a valid path."
+                } else {
+                    # Store the requirements file path in the $app object as appRequirements
+                    $app | Add-Member -MemberType NoteProperty -Name appRequirements -Value $requirementsFilePath -Force
+                    # Update the JSON file with the new appRequirements property
+                    Update-Json
+                }
+            } while (-not (Test-Path $requirementsFilePath))
+        } else {
+            $requirementsFilePath = $requirementsFile.FullName
+        }
+    } else {
+        $requirementsFilePath = $appRequirements
+    }
+    
+    Write-Host "Requirements file found at '$requirementsFilePath'."
+    Write-Output "Activating virtual environment and installing dependencies from '$requirementsFilePath'..."
+    & "$venvPath\Scripts\Activate.ps1"
+    pip install -r $requirementsFilePath
+    Write-Output "Deactivating virtual environment..."
+    & "deactivate"
+    Write-Output "Virtual environment updated and deactivated successfully."
+}
+
 function Update-App {
     param(
         [string]$appName
@@ -247,6 +321,7 @@ function Update-App {
     }
 
     Update-AppRepo -appName $appName
+    Update-Venv -appName $appName
     Restart-App -appName $appName
 }
 
@@ -371,7 +446,7 @@ function Add-AppSetting {
     $venvPath = Get-VenvDirectory -appPath $appPath
     $portNum = Get-PortNumber
 
-    $newApp = [PSCustomObject]@{
+    $newApp = [hashtable]@{
         Name = $appName
         Type = $appType
         VenvPath = $venvPath
@@ -381,13 +456,10 @@ function Add-AppSetting {
     }
 
     if (-not ($global:apps)) {
-        Write-Host "Apps is empty"
         $global:apps = @(@($newApp))
     } else {
-        Write-Host "Apps is not empty"
-        if ($global:apps -is [PSCustomObject]) {
-            Write-Output "global:apps is a PSCustomObject"
-            $global:apps = @(@($global:apps))
+        if ($global:apps -is [System.Management.Automation.PSCustomObject]) {
+            $global:apps = @($global:apps | ForEach-Object { ConvertTo-Hashtable -Object $_ })
         }
         $global:apps += $newApp
     }
@@ -491,10 +563,9 @@ function Show-Menu {
     Write-Output "3. Restart an app"
     Write-Output "4. Start an app"
     Write-Output "5. Stop an app"
-    Write-Output "6. Git pull an app"
-    Write-Output "7. Update an app"
-    Write-Output "8. Add a new app"
-    Write-Output "9. Update an app setting"
+    Write-Output "6. Update an app from repo"
+    Write-Output "7. Add a new app"
+    Write-Output "8. Update an app setting"
     Write-Output "0. Exit"
     Write-Output "=============================="
 }
@@ -545,25 +616,16 @@ function Main {
             6 {
                 Show-Apps
                 Write-Host "===================="
-                $appName = Read-Host "Enter app name to perform 'git pull' (or 'back' to go back to menu)"
-                if ($appName -ieq "back") {
-                    continue
-                }
-                Update-AppRepo -appName $appName
-            }
-            7 {
-                Show-Apps
-                Write-Host "===================="
                 $appName = Read-Host "Enter app name to add (or 'back' to go back to menu)"
                 if ($appName -ieq "back") {
                     continue
                 }
                 Update-App -appName $appName
             }
-            8 {
+            7 {
                 Add-AppSetting
             }
-            9 {
+            8 {
                 Show-Apps
                 Write-Host "===================="
                 $appName = Read-Host "Enter app name to restart (or 'back' to go back to menu)"
