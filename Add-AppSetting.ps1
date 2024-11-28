@@ -37,6 +37,12 @@ Write-Output "Apps read back from JSON:"
 Write-Output $global:apps
 Write-Output "Type of global:apps: $($global:apps.GetType().FullName)"
 
+if ($global:apps -is [hashtable]) {
+    Write-Output "global:apps is a hashtable"
+    $global:apps = @(@($global:apps))
+}
+Write-Output "Apps after conversion: $($global:apps)"
+
 $newApp2 = [hashtable]@{
     Name = "LOS"
     Type = "Streamlit"
@@ -45,12 +51,6 @@ $newApp2 = [hashtable]@{
     IndexPath = "app\app.py"
     Port = 8937
 }
-
-if ($global:apps -is [hashtable]) {
-    Write-Output "global:apps is a hashtable"
-    $global:apps = @(@($global:apps))
-}
-Write-Output "Apps after conversion: $($global:apps)"
 
 $global:apps += $newApp2
 
