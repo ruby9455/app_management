@@ -681,7 +681,7 @@ function Show-Menu {
     Write-Output "5. Stop an app"
     Write-Output "6. Update an app from repo"
     Write-Output "7. Add a new app"
-    Write-Output "8. Update an app setting"
+    Write-Output "8. Update an app"
     Write-Output "9. Remove an app"
     Write-Output "0. Exit"
     Write-Output "=============================="
