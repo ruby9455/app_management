@@ -687,6 +687,23 @@ function Show-Menu {
     Write-Output "=============================="
 }
 
+# Helper functions for the main menu
+function Ask-Confirmation($message) {
+    $confirmation = Read-Host $message
+    return $confirmation -ieq "yes"
+}
+
+function Handle-AppOperation($operation, $message) {
+    Show-Apps
+    Write-Host "===================="
+    $appName = Read-Host $message
+    if ($appName -ieq "back") {
+        return $false
+    }
+    & $operation -appName $appName
+    return $true
+}
+
 function Main {
     while ($true) {
         Show-Menu
@@ -696,69 +713,44 @@ function Main {
                 Show-Apps
             }
             2 {
-                $confirmation = Read-Host "Are you sure you want to start all apps? (yes to confirm)"
-                if ($confirmation -ieq "yes") {
+                if (Ask-Confirmation "Are you sure you want to start all apps? (yes to confirm)") {
                     $apps | ForEach-Object { Start-App -appName $_.Name -appType $_.Type }
                 } else {
                     Write-Output "Operation cancelled."
                 }
             }
             3 {
-                Show-Apps
-                Write-Host "===================="
-                $appName = Read-Host "Enter app name to restart (or 'back' to go back to menu)"
-                if ($appName -ieq "back") {
+                if (-not (Handle-AppOperation Restart-App "Enter app name to restart (or 'back' to go back to menu)")) {
                     continue
                 }
-                Restart-App -appName $appName
             }
             4 {
-                Show-Apps
-                Write-Host "===================="
-                $appName = Read-Host "Enter app name to start (or 'back' to go back to menu)"
-                if ($appName -ieq "back") {
+                if (-not (Handle-AppOperation Start-App "Enter app name to start (or 'back' to go back to menu)")) {
                     continue
                 }
-                Start-App -appName $appName
             }
             5 {
-                Show-Apps
-                Write-Host "===================="
-                $appName = Read-Host "Enter app name to stop (or 'back' to go back to menu)"
-                if ($appName -ieq "back") {
+                if (-not (Handle-AppOperation Stop-App "Enter app name to stop (or 'back' to go back to menu)")) {
                     continue
                 }
-                Stop-App -appName $appName
             }
             6 {
-                Show-Apps
-                Write-Host "===================="
-                $appName = Read-Host "Enter app name to add (or 'back' to go back to menu)"
-                if ($appName -ieq "back") {
+                if (-not (Handle-AppOperation Update-App "Enter app name to update (or 'back' to go back to menu)")) {
                     continue
                 }
-                Update-App -appName $appName
             }
             7 {
                 Add-AppSetting
             }
             8 {
-                Show-Apps
-                Write-Host "===================="
-                $appName = Read-Host "Enter app name to restart (or 'back' to go back to menu)"
-                if ($appName -ieq "back") {
+                if (-not (Handle-AppOperation Update-AppSetting "Enter app name to update setting (or 'back' to go back to menu)")) {
                     continue
                 }
-                Update-AppSetting -appName $appName
             }
             9 {
-                Show-Apps
-                Write-Host "===================="
-                $appName = Read-Host "Enter app name to remove (or 'back' to go back to menu)"
-                if ($appName -ieq "back") {
+                if (-not (Handle-AppOperation Remove-App "Enter app name to remove (or 'back' to go back to menu)")) {
                     continue
                 }
-                Remove-App -appName $appName
             }
             0 {
                 Write-Output "Exiting..."
