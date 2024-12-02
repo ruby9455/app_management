@@ -1,5 +1,6 @@
 # Load the apps list from JSON file if it exists, otherwise create an empty list
 $jsonFilePath = "$PSScriptRoot\apps_test.json"
+Write-Host "Reading apps setting from : $jsonFilePath"
 
 if (Test-Path $jsonFilePath) {
     if ((Get-Item $jsonFilePath).Length -eq 0) {
@@ -650,6 +651,23 @@ function Update-AppSetting {
         Update-Json
     } else {
         Write-Output "No changes made to app '$appName'."
+    }
+}
+
+# Remove an app
+function Remove-App {
+    param(
+        [string]$appName
+    )
+
+    $app = $global:apps | Where-Object { $_.Name -ieq $appName }
+    if ($null -eq $app) {
+        Write-Output "App '$appName' not found."
+        continue
+    } else {
+        $global:apps = $global:apps | Where-Object { $_.Name -ine $appName } # Case-insensitive comparison
+        Write-Output "App '$appName' removed successfully."
+        Update-Json
     }
 }
 
