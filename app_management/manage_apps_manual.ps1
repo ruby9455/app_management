@@ -552,6 +552,23 @@ function Update-AppSetting {
     }
 }
 
+# Remove an app from the global apps list
+function Remove-App {
+    param(
+        [string]$appName
+    )
+
+    $app = $global:apps | Where-Object { $_.Name -ieq $appName }
+    if ($null -eq $app) {
+        Write-Output "App '$appName' not found."
+        continue
+    } else {
+        $global:apps = $global:apps | Where-Object { $_.Name -ine $appName } # Case-insensitive comparison
+        Write-Output "App '$appName' removed successfully."
+        Update-Json
+    }
+}
+
 function Show-Menu {
     Write-Output "=============================="
     Write-Output "Select an option:"
@@ -563,6 +580,7 @@ function Show-Menu {
     Write-Output "6. Update an app from repo"
     Write-Output "7. Add a new app"
     Write-Output "8. Update an app setting"
+    Write-Output "9. Remove an app"
     Write-Output "0. Exit"
     Write-Output "=============================="
 }
@@ -630,6 +648,15 @@ function Main {
                     continue
                 }
                 Update-AppSetting -appName $appName
+            }
+            9 {
+                Show-Apps
+                Write-Host "===================="
+                $appName = Read-Host "Enter app name to remove (or 'back' to go back to menu)"
+                if ($appName -ieq "back") {
+                    continue
+                }
+                Remove-App -appName $appName
             }
             0 {
                 Write-Output "Exiting..."
