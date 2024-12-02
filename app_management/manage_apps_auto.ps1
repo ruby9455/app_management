@@ -513,11 +513,14 @@ function Test-PortAvailability {
 
 # Update the apps list in the JSON file - helper function for Add-AppSetting and Update-AppSetting
 function Update-Json {
-    try {
-        $global:apps | ConvertTo-Json -Depth 10 | Set-Content -Path $jsonFilePath -Encoding UTF8
-            Write-Host "Apps list saved successfully to $jsonFilePath."
-    } catch {
-        Write-Host "Failed to save file: $($_.Exception.Message)"
+    $saveResponse = Read-Host ">>> Would you like to save the updated apps list to the JSON file? (y/n)"
+    if ($saveResponse -ieq "yes" -or $saveResponse -ieq "y") {
+        try {
+            $global:apps | ConvertTo-Json -Depth 10 | Set-Content -Path $jsonFilePath -Encoding UTF8
+                Write-Host "Apps list saved successfully to $jsonFilePath."
+        } catch {
+            Write-Host "Failed to save file: $($_.Exception.Message)"
+        }
     }
 }
 
@@ -567,10 +570,7 @@ function Add-AppSetting {
 
     Write-Output "App '$appName' added successfully."
 
-    $saveResponse = Read-Host ">>> Would you like to save the updated apps list to the JSON file? (y/n)"
-    if ($saveResponse -ieq "yes" -or $saveResponse -ieq "y") {
-        Update-Json
-    }
+    Update-Json
 }
 
 # Update an existing app
@@ -647,10 +647,7 @@ function Update-AppSetting {
 
     if ($updateApp) {
         Write-Output "App '$appName' updated successfully."
-        $saveResponse = Read-Host ">>> Would you like to save the updated apps list to the JSON file? (y/n)"
-        if ($saveResponse -ieq "yes" -or $saveResponse -ieq "y") {
-            Update-Json
-        }
+        Update-Json
     } else {
         Write-Output "No changes made to app '$appName'."
     }
