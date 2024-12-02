@@ -1,5 +1,5 @@
 # Load the apps list from JSON file if it exists, otherwise create an empty list
-$jsonFilePath = "$PSScriptRoot\apps_test.json"
+$jsonFilePath = "$PSScriptRoot\apps.json"
 Write-Host "Reading apps setting from : $jsonFilePath"
 
 if (Test-Path $jsonFilePath) {
