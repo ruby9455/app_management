@@ -554,7 +554,7 @@ function Update-AppSetting {
 }
 
 # Remove an app from the global apps list
-function Remove-App {
+function Remove-AppSetting {
     param(
         [string]$appName
     )
@@ -570,19 +570,53 @@ function Remove-App {
     }
 }
 
+# Close all idle cmd windows
+function Close-IdleCmdWindows {
+    Write-Host "===== Stopping Idle cmd.exe Processes ====="
+
+    # Get all cmd.exe processes
+    $cmdProcesses = Get-Process cmd -ErrorAction SilentlyContinue
+
+    if ($null -eq $cmdProcesses) {
+        Write-Host "No cmd.exe processes found."
+        return
+    }
+
+    foreach ($process in $cmdProcesses) {
+        try {
+            # Get the command line of the process and trim it
+            $commandLine = (Get-CimInstance Win32_Process -Filter "ProcessId = $($process.Id)").CommandLine.Trim()
+
+            # Check if the command line matches idle or minimal criteria
+            if ([string]::IsNullOrWhiteSpace($commandLine) -or 
+                $commandLine -ieq 'cmd.exe' -or 
+                $commandLine -ieq '"C:\windows\system32\cmd.exe"') {
+                Write-Host "Stopping idle cmd.exe process with PID $($process.Id). CommandLine: '$commandLine'"
+                Stop-Process -Id $process.Id -Force
+            } else {
+                Write-Host "Skipping active cmd.exe process with PID $($process.Id). CommandLine: '$commandLine'"
+            }
+        } catch {
+            Write-Warning "Failed to process cmd.exe with PID $($process.Id): $_"
+        }
+    }
+
+    Write-Host "===== Done ====="
+}
+
 function Show-Menu {
     Write-Output "=============================="
     Write-Output "Select an option:"
-    Write-Output "1. List all apps"
-    Write-Output "2. Start all apps"
-    Write-Output "3. Restart an app"
-    Write-Output "4. Start an app"
-    Write-Output "5. Stop an app"
-    Write-Output "6. Update an app from repo"
-    Write-Output "7. Add a new app"
-    Write-Output "8. Update an app"
-    Write-Output "9. Remove an app"
-    Write-Output "0. Exit"
+    Write-Output "1. Start all apps"
+    Write-Output "2. Restart an app"
+    Write-Output "3. Start an app"
+    Write-Output "4. Stop an app"
+    Write-Output "5. Update an app from repo"
+    Write-Output "6. Add a new app to apps.json"
+    Write-Output "7. Update an app in apps.json"
+    Write-Output "8. Remove an app from apps.json"
+    Write-Output "9. Save the apps list to apps.json"
+    Write-Output "0. Close all idle cmd windows"
     Write-Output "=============================="
 }
 
@@ -609,51 +643,50 @@ function Main {
         $option = Read-Host "Enter option"
         switch ($option) {
             1 {
-                Show-Apps
-            }
-            2 {
                 if (Ask-Confirmation "Are you sure you want to start all apps? (yes to confirm)") {
                     $apps | ForEach-Object { Start-App -appName $_.Name -appType $_.Type }
                 } else {
                     Write-Output "Operation cancelled."
                 }
             }
-            3 {
+            2 {
                 if (-not (Handle-AppOperation Restart-App "Enter app name to restart (or 'back' to go back to menu)")) {
                     continue
                 }
             }
-            4 {
+            3 {
                 if (-not (Handle-AppOperation Start-App "Enter app name to start (or 'back' to go back to menu)")) {
                     continue
                 }
             }
-            5 {
+            4 {
                 if (-not (Handle-AppOperation Stop-App "Enter app name to stop (or 'back' to go back to menu)")) {
                     continue
                 }
             }
-            6 {
+            5 {
                 if (-not (Handle-AppOperation Update-App "Enter app name to update (or 'back' to go back to menu)")) {
                     continue
                 }
             }
-            7 {
+            6 {
                 Add-AppSetting
             }
-            8 {
+            7 {
                 if (-not (Handle-AppOperation Update-AppSetting "Enter app name to update setting (or 'back' to go back to menu)")) {
                     continue
                 }
             }
-            9 {
+            8 {
                 if (-not (Handle-AppOperation Remove-App "Enter app name to remove (or 'back' to go back to menu)")) {
                     continue
                 }
             }
+            9 {
+                Update-Json
+            }
             0 {
-                Write-Output "Exiting..."
-                exit
+                Close-IdleCmdWindows
             }
             default {
                 Write-Output "Invalid option. Please try again."
