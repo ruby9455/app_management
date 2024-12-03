@@ -643,44 +643,69 @@ function Main {
         $option = Read-Host "Enter option"
         switch ($option) {
             1 {
-                if (Ask-Confirmation "Are you sure you want to start all apps? (yes to confirm)") {
+                $confirmation = Read-Host "Are you sure you want to start all apps? (yes to confirm)"
+                if ($confirmation -ieq "yes") {
                     $apps | ForEach-Object { Start-App -appName $_.Name -appType $_.Type }
                 } else {
                     Write-Output "Operation cancelled."
                 }
             }
             2 {
-                if (-not (Handle-AppOperation Restart-App "Enter app name to restart (or 'back' to go back to menu)")) {
+                Show-Apps
+                Write-Host "===================="
+                $appName = Read-Host "Enter app name to restart (or 'back' to go back to menu)"
+                if ($appName -ieq "back") {
                     continue
                 }
+                Restart-App -appName $appName
             }
             3 {
-                if (-not (Handle-AppOperation Start-App "Enter app name to start (or 'back' to go back to menu)")) {
+                Show-Apps
+                Write-Host "===================="
+                $appName = Read-Host "Enter app name to start (or 'back' to go back to menu)"
+                if ($appName -ieq "back") {
                     continue
                 }
+                Start-App -appName $appName
             }
             4 {
-                if (-not (Handle-AppOperation Stop-App "Enter app name to stop (or 'back' to go back to menu)")) {
+                Show-Apps
+                Write-Host "===================="
+                $appName = Read-Host "Enter app name to stop (or 'back' to go back to menu)"
+                if ($appName -ieq "back") {
                     continue
                 }
+                Stop-App -appName $appName
             }
             5 {
-                if (-not (Handle-AppOperation Update-App "Enter app name to update (or 'back' to go back to menu)")) {
+                Show-Apps
+                Write-Host "===================="
+                $appName = Read-Host "Enter app name to add (or 'back' to go back to menu)"
+                if ($appName -ieq "back") {
                     continue
                 }
+                Update-App -appName $appName
             }
             6 {
                 Add-AppSetting
             }
             7 {
-                if (-not (Handle-AppOperation Update-AppSetting "Enter app name to update setting (or 'back' to go back to menu)")) {
+                Show-Apps
+                Write-Host "===================="
+                $appName = Read-Host "Enter app name to restart (or 'back' to go back to menu)"
+                if ($appName -ieq "back") {
                     continue
                 }
+                Update-AppSetting -appName $appName
             }
             8 {
-                if (-not (Handle-AppOperation Remove-App "Enter app name to remove (or 'back' to go back to menu)")) {
+                Show-Apps
+                Write-Host "===================="
+                $appName = Read-Host "Enter app name to remove (or 'back' to go back to menu)"
+                if ($appName -ieq "back") {
                     continue
                 }
+                Remove-AppSetting -appName $appName
             }
             9 {
                 Update-Json
