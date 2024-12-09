@@ -122,6 +122,28 @@ function Start-FlaskApp {
     Start-Process "cmd.exe" -ArgumentList "/k", "flask run --host=0.0.0.0 --port $appPort" -WorkingDirectory $appPath
 }
 
+function Start-DashApp {
+    param (
+        [hashtable]$app  
+    )
+
+    $appPath = $app.AppPath
+    $appIndexPath = $app.IndexPath
+    $venvPath = $app.VenvPath
+    $appPort = $app.Port
+
+    if (-not (Test-Path $appPath)) {
+        Write-Output "Path '$appPath' does not exist."
+        return
+    }
+
+    Enable-Venv -venvPath $venvPath
+    Set-Location -Path $appPath
+    Write-Output "Starting Dash app '$($app.Name)' on port $appPort..."
+    # Start-Process "python" -ArgumentList $appIndexPath -WorkingDirectory $appPath
+    Start-Process "cmd.exe" -ArgumentList "/k", "python $appIndexPath $appPort" -WorkingDirectory $appPath
+}
+
 # Convert a PSObject to a hashtable
 function ConvertTo-Hashtable {
     param (
@@ -160,6 +182,7 @@ function Start-App {
         "Streamlit" { Start-StreamlitApp -app $app }  # Pass $app object
         "Django" { Start-DjangoApp -app $app }  # Pass $app object
         "Flask" { Start-FlaskApp -app $app }  # Pass $app object
+        "Dash" { Start-DashApp -app $app }  # Pass $app object
         default { Write-Output "Unknown app type '$($app.Type)'." }
     }
 }
@@ -282,7 +305,20 @@ function Update-Venv {
 
     if ($null -eq $requirementsFile) {
         Write-Output "requirements.txt not found in '$appPath'."
-        return
+        $addRequirementsResponse = Read-Host "Do you want to add the requirements file to the app settings? (y/n)"
+        if ($addRequirementsResponse -ieq "yes" -or $addRequirementsResponse -ieq "y") {
+            $requirementsFilePath = Read-Host "Enter the absolute path for the requirements file (e.g., 'C:\path\to\requirements.txt')"
+            if (-not (Test-Path $requirementsFilePath)) {
+                Write-Output "Path '$requirementsFilePath' does not exist."
+                return
+            }
+            $app | Add-Member -MemberType NoteProperty -Name "appRequirements" -Value $requirementsFilePath
+            Update-Json
+            $requirementsFile = Get-Item -Path $requirementsFilePath
+        } else {
+            Write-Output "Operation cancelled."
+            return
+        }
     }
 
     $requirementsFilePath = $requirementsFile.FullName
@@ -407,7 +443,9 @@ function Get-AppType {
     }
 
     # Check for specific packages
-    if ($packageNames -contains "flask") {
+    if ($packageNames -contains "dash") {
+        return "Dash"
+    } elseif ($packageNames -contains "flask") {
         return "Flask"
     } elseif ($packageNames -contains "django") {
         return "Django"
