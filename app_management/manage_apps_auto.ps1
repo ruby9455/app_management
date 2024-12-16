@@ -72,7 +72,7 @@ function Start-StreamlitApp {
     Set-Location -Path $appPath
     Write-Output "Starting Streamlit app '$($app.Name)' on port $appPort..."
     # Start-Process "streamlit" -ArgumentList "run", $appIndexPath, "--server.port", $appPort
-    Start-Process "cmd.exe" -ArgumentList "/k", "streamlit run $appIndexPath --server.port $appPort" -WorkingDirectory $appPath
+    Start-Process "cmd.exe" -ArgumentList "/k", "streamlit run $appIndexPath --server.port $appPort" -WorkingDirectory $appPath -WindowStyle Minimized
 }
 
 # Start the Django app - helper function for Start-App
@@ -94,7 +94,7 @@ function Start-DjangoApp {
     Set-Location -Path $appPath
     Write-Output "Starting Django app '$($app.Name)' on port $appPort..."
     # Start-Process "python" -ArgumentList ".\manage.py", "runserver", "0.0.0.0:$appPort" -WorkingDirectory $appPath
-    Start-Process "cmd.exe" -ArgumentList "/k", "python .\manage.py runserver 0.0.0.0:$appPort" -WorkingDirectory $appPath
+    Start-Process "cmd.exe" -ArgumentList "/k", "python .\manage.py runserver 0.0.0.0:$appPort" -WorkingDirectory $appPath -WindowStyle Minimized
 }
 
 # Start the Flask app - helper function for Start-App
@@ -119,7 +119,7 @@ function Start-FlaskApp {
     $env:FLASK_ENV = "development"
     Write-Output "Starting Flask app '$($app.Name)' on port $appPort..."
     # Start-Process "python" -ArgumentList ".\app.py" -WorkingDirectory $appPath
-    Start-Process "cmd.exe" -ArgumentList "/k", "flask run --host=0.0.0.0 --port $appPort" -WorkingDirectory $appPath
+    Start-Process "cmd.exe" -ArgumentList "/k", "flask run --host=0.0.0.0 --port $appPort" -WorkingDirectory $appPath -WindowStyle Minimized
 }
 
 function Start-DashApp {
@@ -141,7 +141,7 @@ function Start-DashApp {
     Set-Location -Path $appPath
     Write-Output "Starting Dash app '$($app.Name)' on port $appPort..."
     # Start-Process "python" -ArgumentList $appIndexPath -WorkingDirectory $appPath
-    Start-Process "cmd.exe" -ArgumentList "/k", "python $appIndexPath $appPort" -WorkingDirectory $appPath -ArgumentList
+    Start-Process "cmd.exe" -ArgumentList "/k", "python $appIndexPath $appPort" -WorkingDirectory $appPath  -WindowStyle Minimized
 }
 
 # Convert a PSObject to a hashtable
