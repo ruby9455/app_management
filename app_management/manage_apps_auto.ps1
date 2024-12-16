@@ -197,7 +197,7 @@ function Get-CmdProcessId {
     foreach ($process in $cmdProcesses) {
         $commandLine = (Get-CimInstance Win32_Process -Filter "ProcessId = $($process.Id)").CommandLine
         if ($commandLine -match "streamlit run .* --server.port $port" -or
-            $commandLine -match "python manage.py runserver .*:$port" -or
+            $commandLine -match "python .*manage.py runserver .*:$port" -or
             $commandLine -match "flask run --port $port" -or
             $commandLine -match "python .* $port") {
                 Write-Host "Found process $($process.Id) with command line: $commandLine"
