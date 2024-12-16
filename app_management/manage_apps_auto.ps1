@@ -798,8 +798,8 @@ function Main {
         $option = Read-Host "Enter option"
         switch ($option) {
             1 {
-                $confirmation = Read-Host "Are you sure you want to start all apps? (yes to confirm)"
-                if ($confirmation -ieq "yes") {
+                $confirmation = Read-Host "Are you sure you want to start all apps? (y to confirm)"
+                if ($confirmation -ieq "y") {
                     $apps | ForEach-Object { Start-App -appName $_.Name -appType $_.Type }
                 } else {
                     Write-Output "Operation cancelled."
