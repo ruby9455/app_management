@@ -300,8 +300,14 @@ function Update-Venv {
 
     $appPath = $app.AppPath
     $venvPath = $app.VenvPath
-    # Search for requirements.txt file in the project directory and its subdirectories
-    $requirementsFile = Get-ChildItem -Path $appPath -Recurse -Filter "requirements.txt" -ErrorAction SilentlyContinue | Select-Object -First 1
+    # Check if $app.appRequirements is set
+    if ($app.appRequirements) {
+        Write-Host "Using requirements file from app settings..."
+        $requirementsFile = $app.appRequirements
+        $requirementsFilePath = $requirementsFile
+    } else { # Search for requirements.txt file in the project directory and its subdirectories
+        $requirementsFile = Get-ChildItem -Path $appPath -Recurse -Filter "requirements.txt" -ErrorAction SilentlyContinue | Select-Object -First 1
+    }
 
     if ($null -eq $requirementsFile) {
         Write-Output "requirements.txt not found in '$appPath'."
