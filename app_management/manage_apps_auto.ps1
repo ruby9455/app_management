@@ -141,7 +141,7 @@ function Start-DashApp {
     Set-Location -Path $appPath
     Write-Output "Starting Dash app '$($app.Name)' on port $appPort..."
     # Start-Process "python" -ArgumentList $appIndexPath -WorkingDirectory $appPath
-    Start-Process "cmd.exe" -ArgumentList "/k", "python $appIndexPath $appPort" -WorkingDirectory $appPath
+    Start-Process "cmd.exe" -ArgumentList "/k", "python $appIndexPath $appPort" -WorkingDirectory $appPath -ArgumentList
 }
 
 # Convert a PSObject to a hashtable
@@ -198,7 +198,8 @@ function Get-CmdProcessId {
         $commandLine = (Get-CimInstance Win32_Process -Filter "ProcessId = $($process.Id)").CommandLine
         if ($commandLine -match "streamlit run .* --server.port $port" -or
             $commandLine -match "python manage.py runserver .*:$port" -or
-            $commandLine -match "flask run --port $port") {
+            $commandLine -match "flask run --port $port" -or
+            $commandLine -match "python .* $port") {
                 Write-Host "Found process $($process.Id) with command line: $commandLine"
                 return $process.Id
         }
@@ -239,6 +240,8 @@ function Stop-App {
                 Write-Host "Stopping cmd process with PID $cmdPId..."
                 Stop-Process -Id $cmdPId -Force
                 Write-Host "Cmd process stopped."
+            } else {
+                Write-Host "No cmd process found for port $port."
             }
         }
     }
