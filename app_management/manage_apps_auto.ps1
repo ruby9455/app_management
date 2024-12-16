@@ -208,6 +208,56 @@ function Get-CmdProcessId {
     return $null
 }
 
+# Helper for stopping Dash app
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+
+public class User32 {
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+    
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SetForegroundWindow(IntPtr hWnd);
+    
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+    
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool IsWindowVisible(IntPtr hWnd);
+}
+"@
+
+function Get-CmdWindowHandle {
+    param (
+        [int]$processId
+    )
+    $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
+    if ($null -eq $process) {
+        Write-Host "Process with PID $processId not found."
+        return $null
+    }
+    $mainWindowHandle = $process.MainWindowHandle
+    if ($mainWindowHandle -eq [IntPtr]::Zero) {
+        Write-Host "Main window handle not found for process with PID $processId."
+        return $null
+    }
+    return $mainWindowHandle
+}
+
+function Show-CmdWindow {
+    param (
+        [int]$processId
+    )
+    $hWnd = Get-CmdWindowHandle -processId $processId
+    if ($null -ne $hWnd) {
+        [User32]::ShowWindowAsync($hWnd, 1) | Out-Null
+        [User32]::SetForegroundWindow($hWnd) | Out-Null
+        Write-Host "Brought command prompt window for PID $processId to the foreground. Please close it manually."
+    }
+}
+
 # Stop an app
 function Stop-App {
     param(
@@ -228,18 +278,25 @@ function Stop-App {
         $processId = ($connection | Select-Object -First 1).OwningProcess
         $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
         $cmdPId = Get-CmdProcessId -port $port
+        if (-not ($appType -eq 'Dash')) {
+            if ($null -eq $process) {
+                Write-Host "Process with PID $processId not found."
+            } else {
+                Write-Host "Stopping app '$appName' (PID: $processId) using port $port..."
+                Stop-Process -Id $processId -Force
+                Write-Host "App '$appName' stopped."
 
-        if ($null -eq $process) {
-            Write-Host "Process with PID $processId not found."
+                if ($null -ne $cmdPId) {
+                    Write-Host "Stopping cmd process with PID $cmdPId..."
+                    Stop-Process -Id $cmdPId -Force
+                    Write-Host "Cmd process stopped."
+                } else {
+                    Write-Host "No cmd process found for port $port."
+                }
+            }
         } else {
-            Write-Host "Stopping app '$appName' (PID: $processId) using port $port..."
-            Stop-Process -Id $processId -Force
-            Write-Host "App '$appName' stopped."
-
             if ($null -ne $cmdPId) {
-                Write-Host "Stopping cmd process with PID $cmdPId..."
-                Stop-Process -Id $cmdPId -Force
-                Write-Host "Cmd process stopped."
+                Show-CmdWindow -processId $cmdPId
             } else {
                 Write-Host "No cmd process found for port $port."
             }
