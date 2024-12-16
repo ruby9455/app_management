@@ -477,7 +477,7 @@ function Get-AllUniquePyFile {
     $venvPaths = $venvDirectories | ForEach-Object { $_.FullName }
     
     # Get all Python files, excluding those in the virtual environment directories
-    $allPyFiles = Get-ChildItem -Path $ProjectDirectory -Recurse -Filter *.py | Where-Object {
+    $allPyFiles = @(Get-ChildItem -Path $ProjectDirectory -Recurse -Filter *.py | Where-Object {
         $filePath = $_.FullName
         $isInVenv = $false
         foreach ($venvPath in $venvPaths) {
@@ -487,7 +487,7 @@ function Get-AllUniquePyFile {
             }
         }
         -not $isInVenv
-    } | Select-Object -ExpandProperty FullName -Unique
+    } | Select-Object -ExpandProperty FullName -Unique)
     
     return $allPyFiles
 }
@@ -499,6 +499,12 @@ function Get-IndexPyFile {
     )
     
     $allPyFiles = Get-AllUniquePyFile -ProjectDirectory $ProjectDirectory
+
+    # Ensure that $allPyFiles is treated as an array
+    if ($allPyFiles -isnot [array]) {
+        $allPyFiles = @($allPyFiles)
+    }
+
     for ($i = 0; $i -lt $allPyFiles.Length; $i++) {
         $relativePath = $allPyFiles[$i] -replace [regex]::Escape($ProjectDirectory), '~'
         $relativePath = $relativePath -replace '\\', '/'
