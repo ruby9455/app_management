@@ -588,7 +588,14 @@ function Add-AppSetting {
 
     $appType = Get-AppType -ProjectDirectory $appPath
     if (-not($appType)) {
-        $appType = Read-Host ">>> Enter app type, can be either Streamlit/Django/Flask (s/d/f)"
+        $appType = Read-Host ">>> Enter app type, can be either Streamlit/Django/Flask/Dash (s/d/f/dash)"
+        switch ($appType.ToLower()) {
+            's' { $appType = "Streamlit" }
+            'd' { $appType = "Django" }
+            'f' { $appType = "Flask" }
+            'dash' { $appType = "Dash" }
+            default { Write-Host "Invalid app type entered. Please enter a valid app type." }
+        }
     }
 
     $venvDirectory = Search-Venv -ProjectDirectory $appPath
@@ -650,9 +657,21 @@ function Update-AppSetting {
     }
 
     Write-Host "Current app type: $($app.Type)"
-    $newAppType = Read-Host ">>> Enter app type, can be either Streamlit/Django/Flask (s/d/f) (press Enter to keep the existing value)"
-    if ($newAppType -and $newAppType -ne $app.Type) {
-        $newAppType = $newAppType.Substring(0, 1).ToUpper() + $newAppType.Substring(1).ToLower()
+    do {
+        $newAppType = Read-Host ">>> Enter app type, can be either Streamlit/Django/Flask/Dash (s/d/f/dash) (press Enter to keep the existing value)"
+        if (-not($newAppType)) {
+            break
+        }
+        switch ($newAppType.ToLower()) {
+            's' { $newAppType = "Streamlit"; $validInput = $true }
+            'd' { $newAppType = "Django"; $validInput = $true }
+            'f' { $newAppType = "Flask"; $validInput = $true }
+            'dash' { $newAppType = "Dash"; $validInput = $true }
+            default { Write-Host "Invalid app type entered. Please enter a valid app type."; $validInput = $false }
+        }
+    } until($validInput)
+
+    if ($validInput) {
         $app.Type = $newAppType
         $updateApp = $true
     }
@@ -664,7 +683,7 @@ function Update-AppSetting {
         $updateApp = $true
     }
 
-    if ($app.Type -ieq "streamlit" -or $app.Type -ieq "flask") {
+    if ($app.Type -ieq "streamlit" -or $app.Type -ieq "flask" -or $app.Type -ieq "dash") {
         Write-Host "Current index path: $($app.IndexPath)"
         $newIndexPath = Read-Host ">>> Enter index path (main script for the app) (press Enter to keep the existing value)"
         if ($newIndexPath -and $newIndexPath -ne $app.IndexPath) {
