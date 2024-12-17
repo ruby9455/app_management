@@ -24,6 +24,31 @@ function Show-Apps {
     $apps | Sort-Object Name | ForEach-Object { Write-Output $_.Name }
 }
 
+# Show app details
+function Show-AppDetails {
+    param (
+        [string]$appName
+    )
+    Write-Host "===== Check App Setting ====="
+    $app = $apps | Where-Object { $_.Name -ieq $appName } # Case-insensitive comparison
+    if ($null -eq $app) {
+        Write-Output "App '$appName' not found."
+        return
+    }
+
+    Write-Output "App Name: $($app.Name)"
+    Write-Output "App Type: $($app.Type)"
+    Write-Output "App Path: $($app.AppPath)"
+    if ($app.IndexPath -ne $null) {
+        Write-Output "Index Path: $($app.IndexPath)"
+    }
+    Write-Output "Virtual Environment Path: $($app.VenvPath)"
+    Write-Output "Port: $($app.Port)"
+    if ($app.PSObject.Properties['appRequirements']) {
+        Write-Output "App Requirements: $($app.appRequirements)"
+    }
+}
+
 # Enable the virtual environment - helper function for Start-App
 function Enable-Venv {
     param (
