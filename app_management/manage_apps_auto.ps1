@@ -833,6 +833,37 @@ function Close-IdleCmdWindows {
     Write-Host "===== Done ====="
 }
 
+# Pull the app cmd window to the foreground
+function Pull-CmdWindowToForeground {
+    param(
+        [string]$appName
+    )
+    Write-Host "===== Pulling App Command Window ====="
+    $app = $apps | Where-Object { $_.Name -ieq $appName } # Case-insensitive comparison
+    if ($null -eq $app) {
+        Write-Output "App '$appName' not found."
+        return
+    }
+
+    $port = $app.Port
+    $connection = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue
+
+    if ($null -eq $connection) {
+        Write-Output "App '$appName' is not running."
+        return
+    }
+    
+    $processId = ($connection | Select-Object -First 1).OwningProcess
+    $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
+    $cmdPId = Get-CmdProcessId -port $port
+
+    if ($null -ne $cmdPId) {
+        Show-CmdWindow -processId $cmdPId
+    } else {
+        Write-Host "No cmd process found for app port $port."
+    }
+}
+
 function Show-Menu {
     Write-Output "=============================="
     Write-Output "Select an option:"
