@@ -905,7 +905,24 @@ function Add-AppSetting {
     if ($venvDirectory) {
         $venvPath = Join-Path -Path $appPath -ChildPath $venvDirectory
     } else {
-        $venvPath = Get-VenvDirectory
+        # No virtual environment detected. If pyproject.toml exists, use uv to sync deps instead of asking for a venv path.
+        $pyprojectFile = Join-Path $appPath "pyproject.toml"
+        if (Test-Path $pyprojectFile) {
+            Write-Host "No virtual environment detected. Found pyproject.toml; running 'uv sync' to set up the environment..."
+            Push-Location $appPath
+            uv sync
+            Pop-Location
+            # Attempt to locate the newly created virtual environment
+            $venvDirectory = Search-Venv -ProjectDirectory $appPath
+            if ($venvDirectory) {
+                $venvPath = Join-Path -Path $appPath -ChildPath $venvDirectory
+            } else {
+                # uv-based projects don't require VenvPath for running via 'uv run'
+                $venvPath = ""
+            }
+        } else {
+            $venvPath = Get-VenvDirectory
+        }
     }
     
     if ($appType -ieq "streamlit" -or $appType -ieq "flask") {
