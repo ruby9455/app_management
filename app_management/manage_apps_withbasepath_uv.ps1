@@ -255,6 +255,17 @@ function Start-DashApp {
         return
     }
 
+    if (-not $appIndexPath) {
+        Write-Output "Index path is required for Dash app '$($app.Name)'."
+        return
+    }
+
+    $indexFile = Join-Path $appPath $appIndexPath
+    if (-not (Test-Path $indexFile)) {
+        Write-Output "Index path '$indexFile' does not exist."
+        return
+    }
+
     # Check package manager to determine how to start the app
     $packageManager = if ($app.PackageManager) { $app.PackageManager } else { Get-PackageManager -ProjectDirectory $appPath }
     
@@ -1028,7 +1039,7 @@ function Update-AppSetting {
         $updateApp = $true
     }
 
-    if ($app.Type -ieq "streamlit" -or $app.Type -ieq "flask") {
+    if ($app.Type -ieq "streamlit" -or $app.Type -ieq "flask" -or $app.Type -ieq "dash") {
         Write-Host "Current index path: $($app.IndexPath)"
         $newIndexPath = Read-Host ">>> Enter index path (main script for the app) (press Enter to keep the existing value)"
         if ($newIndexPath -and $newIndexPath -ne $app.IndexPath) {
