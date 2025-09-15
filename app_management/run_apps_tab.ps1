@@ -81,9 +81,126 @@ if (-not $pwshCmd) {
 }
 $pwshPath = $pwshCmd.Source
 
+# Dynamic URL prefix detection functions
+function Get-NetworkUrlPrefix {
+    try {
+        # Get the primary network adapter's IP address
+        $networkAdapter = Get-NetIPAddress -AddressFamily IPv4 | Where-Object {
+            $_.IPAddress -notlike "127.*" -and 
+            $_.IPAddress -notlike "169.254.*" -and
+            $_.PrefixOrigin -eq "Dhcp" -or $_.PrefixOrigin -eq "Manual"
+        } | Sort-Object InterfaceIndex | Select-Object -First 1
+        
+        if ($networkAdapter) {
+            return "http://$($networkAdapter.IPAddress)"
+        }
+        
+        # Fallback: try to get any non-loopback IPv4 address
+        $fallbackAdapter = Get-NetIPAddress -AddressFamily IPv4 | Where-Object {
+            $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*"
+        } | Select-Object -First 1
+        
+        if ($fallbackAdapter) {
+            return "http://$($fallbackAdapter.IPAddress)"
+        }
+    } catch {
+        Write-Warning "Failed to detect network IP: $($_.Exception.Message)"
+    }
+    
+    # Ultimate fallback
+    return "http://10.17.62.232"
+}
+
+function Get-ExternalUrlPrefix {
+    try {
+        # Try to get external IP using a web service
+        $externalIP = Invoke-RestMethod -Uri "https://api.ipify.org" -TimeoutSec 5 -ErrorAction Stop
+        if ($externalIP -and $externalIP -match '^\d+\.\d+\.\d+\.\d+$') {
+            return "http://$externalIP"
+        }
+    } catch {
+        Write-Warning "Failed to detect external IP via ipify.org: $($_.Exception.Message)"
+    }
+    
+    try {
+        # Alternative service
+        $externalIP = Invoke-RestMethod -Uri "https://ifconfig.me/ip" -TimeoutSec 5 -ErrorAction Stop
+        if ($externalIP -and $externalIP -match '^\d+\.\d+\.\d+\.\d+$') {
+            return "http://$externalIP"
+        }
+    } catch {
+        Write-Warning "Failed to detect external IP via ifconfig.me: $($_.Exception.Message)"
+    }
+    
+    # Ultimate fallback
+    return "http://203.1.252.70"
+}
+
+# Detect URL prefixes
+$script:networkUrlPrefix = Get-NetworkUrlPrefix
+$script:externalUrlPrefix = Get-ExternalUrlPrefix
+
+Write-Host "Detected Network URL prefix: $script:networkUrlPrefix"
+Write-Host "Detected External URL prefix: $script:externalUrlPrefix"
+
 # Load apps.json
 $jsonFilePath = "$PSScriptRoot\apps.json"
 Write-Host "Reading apps from: $jsonFilePath"
+
+# Dynamic URL prefix detection functions
+function Get-NetworkUrlPrefix {
+    try {
+        # Get the primary network adapter's IP address
+        $networkAdapter = Get-NetIPAddress -AddressFamily IPv4 | Where-Object {
+            $_.IPAddress -notlike "127.*" -and 
+            $_.IPAddress -notlike "169.254.*" -and
+            $_.PrefixOrigin -eq "Dhcp" -or $_.PrefixOrigin -eq "Manual"
+        } | Sort-Object InterfaceIndex | Select-Object -First 1
+        
+        if ($networkAdapter) {
+            return "http://$($networkAdapter.IPAddress)"
+        }
+        
+        # Fallback: try to get any non-loopback IPv4 address
+        $fallbackAdapter = Get-NetIPAddress -AddressFamily IPv4 | Where-Object {
+            $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*"
+        } | Select-Object -First 1
+        
+        if ($fallbackAdapter) {
+            return "http://$($fallbackAdapter.IPAddress)"
+        }
+    } catch {
+        Write-Warning "Failed to detect network IP: $($_.Exception.Message)"
+    }
+    
+    # Ultimate fallback
+    return "http://10.17.62.232"
+}
+
+function Get-ExternalUrlPrefix {
+    try {
+        # Try to get external IP using a web service
+        $externalIP = Invoke-RestMethod -Uri "https://api.ipify.org" -TimeoutSec 5 -ErrorAction Stop
+        if ($externalIP -and $externalIP -match '^\d+\.\d+\.\d+\.\d+$') {
+            return "http://$externalIP"
+        }
+    } catch {
+        Write-Warning "Failed to detect external IP via ipify.org: $($_.Exception.Message)"
+    }
+    
+    try {
+        # Alternative service
+        $externalIP = Invoke-RestMethod -Uri "https://ifconfig.me/ip" -TimeoutSec 5 -ErrorAction Stop
+        if ($externalIP -and $externalIP -match '^\d+\.\d+\.\d+\.\d+$') {
+            return "http://$externalIP"
+        }
+    } catch {
+        Write-Warning "Failed to detect external IP via ifconfig.me: $($_.Exception.Message)"
+    }
+    
+    # Ultimate fallback
+    return "http://203.1.252.70"
+}
 
 if (-not (Test-Path $jsonFilePath)) {
     throw "apps.json not found at $jsonFilePath"
@@ -871,6 +988,259 @@ function Show-AppsTab {
     return $sorted
 }
 
+# Generate URL display pattern for an app
+function Get-AppUrlsTab {
+    param(
+        [object]$app
+    )
+    
+    $port = Get-FieldValue -Object $app -Name 'Port'
+    if (-not $port) {
+        return "No port configured"
+    }
+    
+    $basePath = Get-FieldValue -Object $app -Name 'BasePath'
+    $basePathStr = if ($basePath -and ([string]::IsNullOrWhiteSpace([string]$basePath) -eq $false)) { "/$basePath" } else { "" }
+    
+    $urls = @()
+    $urls += "  Local URL: http://localhost:$port$basePathStr"
+    $urls += "  Network URL: $script:networkUrlPrefix`:$port$basePathStr"
+    $urls += "  External URL: $script:externalUrlPrefix`:$port$basePathStr"
+    
+    return $urls -join "`n"
+}
+
+# Show all apps with their URLs
+function Show-AppsWithUrlsTab {
+    Write-Host "===== All available apps with URLs ====="
+    $sorted = Get-CurrentAppsList
+    for ($i = 0; $i -lt $sorted.Count; $i++) {
+        $app = $sorted[$i]
+        $name = Get-FieldValue -Object $app -Name 'Name'
+        $type = Get-FieldValue -Object $app -Name 'Type'
+        Write-Host "`n$($i+1): $name ($type)"
+        Write-Host (Get-AppUrlsTab -app $app)
+    }
+    return $sorted
+}
+
+# Generate HTML dashboard
+function Generate-HtmlDashboard {
+    Write-Host "===== Generating HTML Dashboard ====="
+    
+    # Get current apps list
+    $currentApps = Get-CurrentAppsList
+    
+    # Filter to apps with ports
+    $appsWithPorts = $currentApps | Where-Object { 
+        $port = Get-FieldValue -Object $_ -Name 'Port'
+        $port -and $port -gt 0 
+    }
+    
+    if (-not $appsWithPorts -or (@($appsWithPorts).Count -eq 0)) {
+        Write-Host "No apps with ports found. Cannot generate dashboard."
+        return
+    }
+    
+    # Detect URL prefixes
+    $networkUrlPrefix = Get-NetworkUrlPrefix
+    $externalUrlPrefix = Get-ExternalUrlPrefix
+    
+    Write-Host "Detected Network URL prefix: $networkUrlPrefix"
+    Write-Host "Detected External URL prefix: $externalUrlPrefix"
+    
+    # Generate HTML content
+    $html = @"
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Management Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        .apps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            padding: 30px;
+        }
+        .app-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            border-left: 4px solid #4facfe;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .app-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .app-name {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .app-type {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 4px 8px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            display: inline-block;
+            margin-bottom: 15px;
+        }
+        .url-section {
+            margin-bottom: 15px;
+        }
+        .url-label {
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+        .url-link {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            display: block;
+            text-decoration: none;
+            color: #2c3e50;
+            transition: background-color 0.2s;
+            word-break: break-all;
+        }
+        .url-link:hover {
+            background: #f0f8ff;
+            border-color: #4facfe;
+        }
+        .url-link:active {
+            background: #e3f2fd;
+        }
+        .footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            border-top: 1px solid #eee;
+        }
+        .refresh-btn {
+            background: #4facfe;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            margin-bottom: 20px;
+        }
+        .refresh-btn:hover {
+            background: #3d8bfe;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 App Management Dashboard</h1>
+            <p>Access all your applications from one place</p>
+            <button class="refresh-btn" onclick="location.reload()">🔄 Refresh</button>
+        </div>
+        
+        <div class="apps-grid">
+"@
+
+    foreach ($app in $appsWithPorts) {
+        $port = Get-FieldValue -Object $app -Name 'Port'
+        $basePath = Get-FieldValue -Object $app -Name 'BasePath'
+        $basePathStr = if ($basePath -and ([string]::IsNullOrWhiteSpace([string]$basePath) -eq $false)) { "/$basePath" } else { "" }
+        $appName = Get-FieldValue -Object $app -Name 'Name'
+        $appType = Get-FieldValue -Object $app -Name 'Type'
+        
+        $html += @"
+            <div class="app-card">
+                <div class="app-name">$appName</div>
+                <div class="app-type">$appType</div>
+                
+                <div class="url-section">
+                    <div class="url-label">🏠 Local URL</div>
+                    <a href="http://localhost:$port$basePathStr" target="_blank" class="url-link">
+                        http://localhost:$port$basePathStr
+                    </a>
+                </div>
+                
+                <div class="url-section">
+                    <div class="url-label">🌐 Network URL</div>
+                    <a href="$networkUrlPrefix`:$port$basePathStr" target="_blank" class="url-link">
+                        $networkUrlPrefix`:$port$basePathStr
+                    </a>
+                </div>
+                
+                <div class="url-section">
+                    <div class="url-label">🌍 External URL</div>
+                    <a href="$externalUrlPrefix`:$port$basePathStr" target="_blank" class="url-link">
+                        $externalUrlPrefix`:$port$basePathStr
+                    </a>
+                </div>
+            </div>
+"@
+    }
+
+    $html += @"
+        </div>
+        
+        <div class="footer">
+            <p>Generated on $(Get-Date -Format "yyyy-MM-dd HH:mm:ss") | Network: $networkUrlPrefix | External: $externalUrlPrefix</p>
+        </div>
+    </div>
+</body>
+</html>
+"@
+
+    # Save HTML file
+    $htmlFilePath = "$PSScriptRoot\app_index.html"
+    $html | Out-File -FilePath $htmlFilePath -Encoding UTF8
+    
+    Write-Host "HTML dashboard saved to: $htmlFilePath"
+    Write-Host "You can open this file in your browser or serve it with any web server."
+    Write-Host "To serve it with Python: python -m http.server 1234"
+    Write-Host "To serve it with PowerShell: .\generate_app_index.ps1"
+    
+    return $htmlFilePath
+}
+
 function Get-AppByNameOrIndexTab {
     param(
         [Parameter(Mandatory = $true)]
@@ -961,7 +1331,7 @@ function Start-AppsList {
             $packageManager = [string](Get-FieldValue -Object $app -Name 'PackageManager')
         } else {
             $pyproject = Join-Path $workingDir 'pyproject.toml'
-            $packageManager = (Test-Path $pyproject) ? 'uv' : 'pip'
+            $packageManager = if (Test-Path $pyproject) { 'uv' } else { 'pip' }
         }
 
         $venvActivatePrefix = ""
@@ -1069,6 +1439,7 @@ if (-not $invokedWithParams) {
         Write-Output "7. Update an app in apps.json"
         Write-Output "8. Remove an app from apps.json"
         Write-Output "9. Save the apps list to apps.json"
+        Write-Output "10. Generate/Update HTML Dashboard"
         Write-Output "0. Close all idle app tabs"
         Write-Output "=============================="
         $option = Read-Host "Enter option"
@@ -1274,6 +1645,9 @@ if (-not $invokedWithParams) {
             }
             9 {
                 Update-Json
+            }
+            10 {
+                Generate-HtmlDashboard
             }
             0 {
                 Close-AllIdleAppTabs
