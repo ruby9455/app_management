@@ -1,3 +1,4 @@
 apps.json
 apps_test.json
 debug/
+*.html
