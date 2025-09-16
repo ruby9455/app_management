@@ -1043,20 +1043,13 @@ function Start-AppsList {
             Write-Warning "Skipping '$name': Unsupported Type '$type'."; continue
         }
 
-        $commandTextBase = "Set-Location -LiteralPath '$escapedDir'; `$host.UI.RawUI.WindowTitle = '$escapedName'; $runCmd"
-        $commandTextWT = "$commandTextBase; exit `$LASTEXITCODE"
-        $encodedWT = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($commandTextWT))
-        $encodedNoExit = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($commandTextBase))
+        $commandText = "Set-Location -LiteralPath '$escapedDir'; `$host.UI.RawUI.WindowTitle = '$escapedName'; $runCmd; exit `$LASTEXITCODE"
+        $encoded = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($commandText))
 
         if ($wtCmd) {
-            try {
-                Start-Process -FilePath 'wt' -ArgumentList @('-w','0','new-tab','--title', $name, '--startingDirectory', $workingDir, '--', $pwshPath, '-NoLogo', '-EncodedCommand', $encodedWT) -WorkingDirectory $workingDir | Out-Null
-            } catch {
-                # Fallback if Windows Terminal cannot be launched (e.g., access denied to WindowsApps path or alias disabled)
-                Start-Process -FilePath $pwshPath -ArgumentList @('-NoLogo','-NoExit','-EncodedCommand', $encodedNoExit) -WorkingDirectory $workingDir | Out-Null
-            }
+            & $wtCmd.Source -w 0 new-tab --title $name --startingDirectory $workingDir -- $pwshPath -NoLogo -EncodedCommand $encoded | Out-Null
         } else {
-            Start-Process -FilePath $pwshPath -ArgumentList @('-NoLogo','-NoExit','-EncodedCommand', $encodedNoExit) -WorkingDirectory $workingDir | Out-Null
+            Start-Process -FilePath $pwshPath -ArgumentList @('-NoLogo','-EncodedCommand', $encoded) -WorkingDirectory $workingDir | Out-Null
         }
     }
 }
