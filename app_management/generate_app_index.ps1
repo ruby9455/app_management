@@ -301,21 +301,52 @@ $htmlFilePath = "$PSScriptRoot\app_index.html"
 $htmlContent | Out-File -FilePath $htmlFilePath -Encoding UTF8
 Write-Host "HTML index page saved to: $htmlFilePath"
 
-# Start HTTP server
-Write-Host "Starting HTTP server on $HostAddress`:$Port..."
-Write-Host "Open your browser and go to: http://$HostAddress`:$Port"
+# Start HTTP server (with automatic fallback if the default port is taken or reserved)
+Write-Host "Starting HTTP server..."
 Write-Host "Press Ctrl+C to stop the server"
 
 # Simple HTTP server using .NET HttpListener
 Add-Type -AssemblyName System.Net.Http
 
-$listener = New-Object System.Net.HttpListener
-$listener.Prefixes.Add("http://$HostAddress`:$Port/")
+# Helper to discover a free TCP port (loopback only)
+function Get-FreeTcpPort {
+    $tcp = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+    $tcp.Start()
+    $port = ([System.Net.IPEndPoint]$tcp.LocalEndpoint).Port
+    $tcp.Stop()
+    return $port
+}
+
+$listener = [System.Net.HttpListener]::new()
+
+$selectedPort = $Port
+$candidatePorts = @($Port) + (1112..1125) + (Get-FreeTcpPort)
+$candidatePorts = $candidatePorts | Select-Object -Unique
+
+$started = $false
+foreach ($p in $candidatePorts) {
+    try {
+        $listener.Prefixes.Clear()
+        $listener.Prefixes.Add("http://$HostAddress`:$p/")
+        $listener.Start()
+        $selectedPort = $p
+        $started = $true
+        break
+    } catch {
+        $msg = $_.Exception.Message
+        Write-Warning "Failed to bind http://$HostAddress`:$p/ - $msg"
+        continue
+    }
+}
+
+if (-not $started) {
+    throw "Unable to start HTTP server; all candidate ports failed."
+}
+
+Write-Host "Server started successfully on http://$HostAddress`:$selectedPort/"
+Write-Host "Open your browser and go to: http://$HostAddress`:$selectedPort"
 
 try {
-    $listener.Start()
-    Write-Host "Server started successfully!"
-    
     while ($listener.IsListening) {
         $context = $listener.GetContext()
         $request = $context.Request
@@ -343,7 +374,7 @@ try {
         $response.OutputStream.Close()
     }
 } catch {
-    Write-Error "Error starting server: $($_.Exception.Message)"
+    Write-Error "Server error: $($_.Exception.Message)"
 } finally {
     if ($listener.IsListening) {
         $listener.Stop()
