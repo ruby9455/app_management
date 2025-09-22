@@ -1416,7 +1416,7 @@ function Start-AppsList {
             $runserverPortArg = ""
             $djPort = Get-FieldValue -Object $app -Name 'Port'
             if ($null -ne $djPort -and ([string]::IsNullOrWhiteSpace([string]$djPort) -eq $false)) {
-                $runserverPortArg = " 0.0.0.0:$djPort"
+                $runserverPortArg = " $djPort"
             }
             if ($packageManager -ieq 'uv') {
                 $runCmd = "uv run '$escapedManage' runserver$runserverPortArg"
