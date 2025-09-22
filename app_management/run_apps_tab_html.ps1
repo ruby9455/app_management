@@ -42,6 +42,7 @@ $ErrorActionPreference = 'Stop'
 function Deduplicate-AppsByName {
     param(
         [Parameter(Mandatory=$true)]
+        [AllowEmptyCollection()]
         [array]$Apps
     )
     return @($Apps | Group-Object { $_.Name.ToString().ToLowerInvariant() } | ForEach-Object { $_.Group | Select-Object -First 1 })
@@ -61,6 +62,27 @@ function Get-FieldValue {
     }
     if ($Object.PSObject -and $Object.PSObject.Properties.Match($Name).Count -gt 0) { return $Object.$Name }
     return $null
+}
+
+function Set-FieldValue {
+    param(
+        [Parameter(Mandatory=$true)]
+        [object]$Object,
+        [Parameter(Mandatory=$true)]
+        [string]$Name,
+        [Parameter(Mandatory=$true)]
+        $Value
+    )
+    if ($null -eq $Object) { return }
+    if ($Object -is [hashtable]) {
+        $Object[$Name] = $Value
+        return
+    }
+    if ($Object.PSObject -and $Object.PSObject.Properties.Match($Name).Count -gt 0) {
+        $Object.$Name = $Value
+    } else {
+        try { Add-Member -InputObject $Object -NotePropertyName $Name -NotePropertyValue $Value -Force | Out-Null } catch { }
+    }
 }
 
 function Has-NonEmptyField {
@@ -203,7 +225,19 @@ function Get-ExternalUrlPrefix {
 }
 
 if (-not (Test-Path $jsonFilePath)) {
-    throw "apps.json not found at $jsonFilePath"
+    try {
+        $examplePath = Join-Path $PSScriptRoot 'apps_example.json'
+        if (Test-Path $examplePath) {
+            Copy-Item -Path $examplePath -Destination $jsonFilePath -Force
+            Write-Host "Created apps.json from template: $examplePath"
+        } else {
+            # Fallback to minimal empty list
+            '[]' | Out-File -FilePath $jsonFilePath -Encoding UTF8 -Force
+            Write-Host "Created empty apps.json at: $jsonFilePath"
+        }
+    } catch {
+        throw "Failed to create apps.json at ${jsonFilePath}: $($_.Exception.Message)"
+    }
 }
 
 $apps = Get-Content $jsonFilePath | ConvertFrom-Json
@@ -221,8 +255,7 @@ if ($AppName) {
 }
 
 if (-not $apps -or $apps.Count -eq 0) {
-    Write-Host "No Streamlit apps found in apps.json. Nothing to launch."
-    return
+    Write-Host "No Streamlit apps found in apps.json. Opening menu so you can add one."
 }
 
 # Helper: get listening PIDs for a given port using OwningProcess
@@ -640,12 +673,22 @@ function Get-PackageManager {
 function ConvertTo-Hashtable {
     param (
         [Parameter(Mandatory=$true)]
-        [pscustomobject]$Object
+        [object]$Object
     )
 
+    if ($null -eq $Object) { return @{} }
+    if ($Object -is [hashtable]) {
+        # Return a shallow copy to avoid accidental mutation of the original reference
+        $copy = @{}
+        foreach ($k in $Object.Keys) { $copy[$k] = $Object[$k] }
+        return $copy
+    }
+
     $hashtable = @{}
-    foreach ($property in $Object.PSObject.Properties) {
-        $hashtable[$property.Name] = $property.Value
+    if ($Object.PSObject) {
+        foreach ($property in $Object.PSObject.Properties) {
+            $hashtable[$property.Name] = $property.Value
+        }
     }
     return $hashtable
 }
@@ -654,6 +697,7 @@ function ConvertTo-Hashtable {
 function Deduplicate-AppsByName {
     param(
         [Parameter(Mandatory=$true)]
+        [AllowEmptyCollection()]
         [array]$Apps
     )
     return @($Apps | Group-Object { $_.Name.ToString().ToLowerInvariant() } | ForEach-Object { $_.Group | Select-Object -First 1 })
@@ -983,7 +1027,8 @@ function Show-AppsTab {
     Write-Host "===== All available apps ====="
     $sorted = Get-CurrentAppsList
     for ($i = 0; $i -lt $sorted.Count; $i++) {
-        Write-Host ("{0}: {1}" -f ($i+1), $sorted[$i].Name)
+        $name = Get-FieldValue -Object $sorted[$i] -Name 'Name'
+        Write-Host ("{0}: {1}" -f ($i+1), $name)
     }
     return $sorted
 }
@@ -1254,7 +1299,7 @@ function Get-AppByNameOrIndexTab {
         Write-Host "Invalid index. Please enter a number between 1 and $($AppList.Count)."
         return $null
     } else {
-        $app = $AppList | Where-Object { $_.Name -ieq $InputValue }
+        $app = $AppList | Where-Object { (Get-FieldValue -Object $_ -Name 'Name') -ieq $InputValue }
         if ($null -eq $app) { Write-Host "App '$InputValue' not found."; return $null }
         return $app
     }
@@ -1519,12 +1564,13 @@ if (-not $invokedWithParams) {
                 if ($null -ne $appSel) {
                     # Stop the app's running process and wait for the port to be free
                     Stop-AppByConfig -App $appSel
-                    if ($appSel.PSObject.Properties.Match('Port').Count -gt 0 -and ([string]::IsNullOrWhiteSpace([string]$appSel.Port) -eq $false)) {
-                        $null = Wait-ForPortToBeFree -Port ([int]$appSel.Port) -TimeoutSeconds 10
+                    if (Has-NonEmptyField -Object $appSel -Name 'Port') {
+                        $null = Wait-ForPortToBeFree -Port ([int](Get-FieldValue -Object $appSel -Name 'Port')) -TimeoutSeconds 10
                     }
                     Start-Sleep -Milliseconds 300
                     # Trigger restart in the same tab by sending Enter
-                    Send-EnterToAppTab -Title $appSel.Name
+                    $targetName = Get-FieldValue -Object $appSel -Name 'Name'
+                    Send-EnterToAppTab -Title $targetName
                 }
             }
             3 {
@@ -1566,7 +1612,7 @@ if (-not $invokedWithParams) {
                 $appName = Read-Host "Default app name: $defaultName (press Enter to keep or enter new)"
                 if (-not $appName) { $appName = $defaultName }
                 # Guard: prevent duplicate names (case-insensitive)
-                $exists = ($global:apps | Where-Object { $_.Name -ieq $appName })
+                $exists = ($global:apps | Where-Object { (Get-FieldValue -Object $_ -Name 'Name') -ieq $appName })
                 if ($exists) {
                     Write-Host "An app named '$appName' already exists. Please choose a different name."
                     break
@@ -1623,67 +1669,81 @@ if (-not $invokedWithParams) {
                 if ($null -eq $appSel) { continue }
 
                 $app = ConvertTo-Hashtable -Object $appSel
-                $nameForIndex = $appSel.Name
+                $nameForIndex = Get-FieldValue -Object $appSel -Name 'Name'
                 $updated = $false
 
-                Write-Host "Current app name: $($app.Name)"
+                $currName = Get-FieldValue -Object $app -Name 'Name'
+                Write-Host "Current app name: $currName"
                 $newAppName = Read-Host ">>> Enter app name (press Enter to keep)"
-                if ($newAppName -and $newAppName -cne $app.Name) { $app.Name = $newAppName; $updated = $true }
+                if ($newAppName -and $newAppName -cne $currName) { Set-FieldValue -Object $app -Name 'Name' -Value $newAppName; $updated = $true }
 
-                $detectedType = Get-AppType -ProjectDirectory $app.AppPath
-                Write-Host "Current type: $($app.Type) | Detected: $detectedType"
-                if ($detectedType -and $detectedType -ne 'Unknown Application Type' -and $detectedType -ne $app.Type) {
+                $appPathVal = Get-FieldValue -Object $app -Name 'AppPath'
+                $detectedType = Get-AppType -ProjectDirectory $appPathVal
+                $currType = Get-FieldValue -Object $app -Name 'Type'
+                Write-Host "Current type: $currType | Detected: $detectedType"
+                if ($detectedType -and $detectedType -ne 'Unknown Application Type' -and $detectedType -ne $currType) {
                     $ans = Read-Host ">>> Update type to '$detectedType'? (y/n)"
-                    if ($ans -match '^(?i:y|yes)$') { $app.Type = $detectedType; $updated = $true }
+                    if ($ans -match '^(?i:y|yes)$') { Set-FieldValue -Object $app -Name 'Type' -Value $detectedType; $updated = $true }
                 }
                 $manualType = Read-Host ">>> Or manually enter type Streamlit/Django/Flask/Dash (press Enter to keep)"
-                if ($manualType) { $app.Type = $manualType; $updated = $true }
+                if ($manualType) { Set-FieldValue -Object $app -Name 'Type' -Value $manualType; $updated = $true }
 
-                $detectedPM = Get-PackageManager -ProjectDirectory $app.AppPath
-                $currentPM = if ($app.PackageManager) { $app.PackageManager } else { 'Not set' }
+                $detectedPM = Get-PackageManager -ProjectDirectory $appPathVal
+                $currPM = Get-FieldValue -Object $app -Name 'PackageManager'
+                $currentPM = if ($currPM) { $currPM } else { 'Not set' }
                 Write-Host "Current package manager: $currentPM | Detected: $detectedPM"
-                if (-not $app.PackageManager) { $app.PackageManager = $detectedPM; $updated = $true }
-                elseif ($detectedPM -ne $app.PackageManager) {
+                if (-not $currPM) { Set-FieldValue -Object $app -Name 'PackageManager' -Value $detectedPM; $updated = $true }
+                elseif ($detectedPM -ne $currPM) {
                     $ans = Read-Host ">>> Update package manager to '$detectedPM'? (y/n)"
-                    if ($ans -match '^(?i:y|yes)$') { $app.PackageManager = $detectedPM; $updated = $true }
+                    if ($ans -match '^(?i:y|yes)$') { Set-FieldValue -Object $app -Name 'PackageManager' -Value $detectedPM; $updated = $true }
                 }
 
-                Write-Host "Current app path: $($app.AppPath)"
+                $currAppPath = Get-FieldValue -Object $app -Name 'AppPath'
+                Write-Host "Current app path: $currAppPath"
                 $newPath = Read-Host ">>> Enter app path (press Enter to keep)"
-                if ($newPath) { $app.AppPath = $newPath; $updated = $true }
+                if ($newPath) { Set-FieldValue -Object $app -Name 'AppPath' -Value $newPath; $updated = $true }
 
-                if ($app.Type -ieq 'streamlit' -or $app.Type -ieq 'flask' -or $app.Type -ieq 'dash') {
-                    Write-Host "Current index path: $($app.IndexPath)"
+                $typeVal = Get-FieldValue -Object $app -Name 'Type'
+                if ($typeVal -ieq 'streamlit' -or $typeVal -ieq 'flask' -or $typeVal -ieq 'dash') {
+                    $currIndex = Get-FieldValue -Object $app -Name 'IndexPath'
+                    Write-Host "Current index path: $currIndex"
                     $newIndex = Read-Host ">>> Enter index path (press Enter to keep)"
-                    if ($newIndex) { $app.IndexPath = $newIndex; $updated = $true }
-                } elseif ($app.Type -ieq 'django') {
-                    if ($app.IndexPath) { $app.PSObject.Properties.Remove('IndexPath'); $updated = $true }
+                    if ($newIndex) { Set-FieldValue -Object $app -Name 'IndexPath' -Value $newIndex; $updated = $true }
+                } elseif ($typeVal -ieq 'django') {
+                    $hasIndex = Get-FieldValue -Object $app -Name 'IndexPath'
+                    if ($hasIndex) {
+                        if ($app -is [hashtable]) { $null = $app.Remove('IndexPath') } else { $app.PSObject.Properties.Remove('IndexPath') }
+                        $updated = $true
+                    }
                 }
 
-                Write-Host "Current venv path: $($app.VenvPath)"
+                $currVenv = Get-FieldValue -Object $app -Name 'VenvPath'
+                Write-Host "Current venv path: $currVenv"
                 $chgVenv = Read-Host ">>> Update venv path? (y/n)"
                 if ($chgVenv -match '^(?i:y|yes)$') {
                     $newVenv = Get-VenvDirectory
-                    if ($newVenv) { $app.VenvPath = $newVenv; $updated = $true }
+                    if ($newVenv) { Set-FieldValue -Object $app -Name 'VenvPath' -Value $newVenv; $updated = $true }
                 }
 
-                Write-Host "Current port: $($app.Port)"
+                $currPort = Get-FieldValue -Object $app -Name 'Port'
+                Write-Host "Current port: $currPort"
                 $chgPort = Read-Host ">>> Update port? (y/n)"
                 if ($chgPort -match '^(?i:y|yes)$') {
                     $newPort = Get-PortNumber
-                    if ($newPort) { $app.Port = $newPort; $updated = $true }
+                    if ($newPort) { Set-FieldValue -Object $app -Name 'Port' -Value $newPort; $updated = $true }
                 }
 
                 if ($updated) {
                     # Update the correct entry by original object identity when possible, fallback to name match
                     $replaced = $false
                     for ($i = 0; $i -lt $global:apps.Count; $i++) {
-                        if ($global:apps[$i].Name -ieq $nameForIndex) { $global:apps[$i] = $app; $replaced = $true; break }
+                        if ((Get-FieldValue -Object $global:apps[$i] -Name 'Name') -ieq $nameForIndex) { $global:apps[$i] = $app; $replaced = $true; break }
                     }
                     if (-not $replaced) {
                         # If not found by name (renamed), replace by new name or append
                         for ($i = 0; $i -lt $global:apps.Count; $i++) {
-                            if ($global:apps[$i].Name -ieq $app.Name) { $global:apps[$i] = $app; $replaced = $true; break }
+                            $currAppName = Get-FieldValue -Object $app -Name 'Name'
+                            if ((Get-FieldValue -Object $global:apps[$i] -Name 'Name') -ieq $currAppName) { $global:apps[$i] = $app; $replaced = $true; break }
                         }
                         if (-not $replaced) { $global:apps += $app }
                     }
@@ -1699,8 +1759,8 @@ if (-not $invokedWithParams) {
                 if ($sel -ieq 'back') { continue }
                 $appSel = Get-AppByNameOrIndexTab -InputValue $sel -AppList $list
                 if ($null -eq $appSel) { continue }
-                $name = $appSel.Name
-                $global:apps = $global:apps | Where-Object { $_.Name -ine $name }
+                $name = Get-FieldValue -Object $appSel -Name 'Name'
+                $global:apps = $global:apps | Where-Object { (Get-FieldValue -Object $_ -Name 'Name') -ine $name }
                 Write-Host "App '$name' removed successfully."
                 Update-Json
             }

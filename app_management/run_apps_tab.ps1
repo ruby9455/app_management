@@ -42,6 +42,7 @@ $ErrorActionPreference = 'Stop'
 function Deduplicate-AppsByName {
     param(
         [Parameter(Mandatory=$true)]
+        [AllowEmptyCollection()]
         [array]$Apps
     )
     return @($Apps | Group-Object { $_.Name.ToString().ToLowerInvariant() } | ForEach-Object { $_.Group | Select-Object -First 1 })
@@ -86,7 +87,18 @@ $jsonFilePath = "$PSScriptRoot\apps.json"
 Write-Host "Reading apps from: $jsonFilePath"
 
 if (-not (Test-Path $jsonFilePath)) {
-    throw "apps.json not found at $jsonFilePath"
+    try {
+        $examplePath = Join-Path $PSScriptRoot 'apps_example.json'
+        if (Test-Path $examplePath) {
+            Copy-Item -Path $examplePath -Destination $jsonFilePath -Force
+            Write-Host "Created apps.json from template: $examplePath"
+        } else {
+            '[]' | Out-File -FilePath $jsonFilePath -Encoding UTF8 -Force
+            Write-Host "Created empty apps.json at: $jsonFilePath"
+        }
+    } catch {
+        throw "Failed to create apps.json at ${jsonFilePath}: $($_.Exception.Message)"
+    }
 }
 
 $apps = Get-Content $jsonFilePath | ConvertFrom-Json
@@ -104,8 +116,7 @@ if ($AppName) {
 }
 
 if (-not $apps -or $apps.Count -eq 0) {
-    Write-Host "No Streamlit apps found in apps.json. Nothing to launch."
-    return
+    Write-Host "No Streamlit apps found in apps.json. Opening menu so you can add one."
 }
 
 # Helper: get listening PIDs for a given port using OwningProcess
@@ -523,12 +534,21 @@ function Get-PackageManager {
 function ConvertTo-Hashtable {
     param (
         [Parameter(Mandatory=$true)]
-        [pscustomobject]$Object
+        [object]$Object
     )
 
+    if ($null -eq $Object) { return @{} }
+    if ($Object -is [hashtable]) {
+        $copy = @{}
+        foreach ($k in $Object.Keys) { $copy[$k] = $Object[$k] }
+        return $copy
+    }
+
     $hashtable = @{}
-    foreach ($property in $Object.PSObject.Properties) {
-        $hashtable[$property.Name] = $property.Value
+    if ($Object.PSObject) {
+        foreach ($property in $Object.PSObject.Properties) {
+            $hashtable[$property.Name] = $property.Value
+        }
     }
     return $hashtable
 }
