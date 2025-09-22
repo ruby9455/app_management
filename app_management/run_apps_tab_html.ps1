@@ -38,6 +38,74 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# =============================
+# Configuration
+# -----------------------------
+# Central place to tune fallback URLs and timeouts used by URL detection.
+$script:DEFAULT_NETWORK_URL_FALLBACK  = 'http://10.17.62.232'
+$script:DEFAULT_EXTERNAL_URL_FALLBACK = 'http://203.1.252.70'
+$script:EXTERNAL_IP_TIMEOUT_SEC       = 5
+
+# =============================
+# URL prefix helper functions
+# -----------------------------
+# Centralized here so they are easy to find/edit. These functions detect
+# the preferred network and external IP URL prefixes used when constructing
+# app URLs. Update the fallback values below to suit your environment.
+function Get-NetworkUrlPrefix {
+    try {
+        # Get the primary network adapter's IP address
+        $networkAdapter = Get-NetIPAddress -AddressFamily IPv4 | Where-Object {
+            $_.IPAddress -notlike "127.*" -and 
+            $_.IPAddress -notlike "169.254.*" -and
+            $_.PrefixOrigin -eq "Dhcp" -or $_.PrefixOrigin -eq "Manual"
+        } | Sort-Object InterfaceIndex | Select-Object -First 1
+        
+        if ($networkAdapter) {
+            return "http://$($networkAdapter.IPAddress)"
+        }
+        
+        # Fallback: try to get any non-loopback IPv4 address
+        $fallbackAdapter = Get-NetIPAddress -AddressFamily IPv4 | Where-Object {
+            $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*"
+        } | Select-Object -First 1
+        
+        if ($fallbackAdapter) {
+            return "http://$($fallbackAdapter.IPAddress)"
+        }
+    } catch {
+        Write-Warning "Failed to detect network IP: $($_.Exception.Message)"
+    }
+    
+    # Ultimate fallback
+    return $script:DEFAULT_NETWORK_URL_FALLBACK
+}
+
+function Get-ExternalUrlPrefix {
+    try {
+        # Try to get external IP using a web service
+        $externalIP = Invoke-RestMethod -Uri "https://api.ipify.org" -TimeoutSec $script:EXTERNAL_IP_TIMEOUT_SEC -ErrorAction Stop
+        if ($externalIP -and $externalIP -match '^\d+\.\d+\.\d+\.\d+$') {
+            return "http://$externalIP"
+        }
+    } catch {
+        Write-Warning "Failed to detect external IP via ipify.org: $($_.Exception.Message)"
+    }
+    
+    try {
+        # Alternative service
+        $externalIP = Invoke-RestMethod -Uri "https://ifconfig.me/ip" -TimeoutSec $script:EXTERNAL_IP_TIMEOUT_SEC -ErrorAction Stop
+        if ($externalIP -and $externalIP -match '^\d+\.\d+\.\d+\.\d+$') {
+            return "http://$externalIP"
+        }
+    } catch {
+        Write-Warning "Failed to detect external IP via ifconfig.me: $($_.Exception.Message)"
+    }
+    
+    # Ultimate fallback
+    return $script:DEFAULT_EXTERNAL_URL_FALLBACK
+}
+
 # Utility: Return apps list with unique Names (case-insensitive), keeping first occurrence
 function Deduplicate-AppsByName {
     param(
@@ -96,67 +164,27 @@ function Has-NonEmptyField {
     return ($null -ne $value -and ([string]::IsNullOrWhiteSpace([string]$value) -eq $false))
 }
 
+# Return a normalized apps list: array, filtered to supported types and deduplicated by name
+function Normalize-AppsList {
+    param(
+        [AllowNull()]
+        $Apps
+    )
+    $arr = @()
+    if ($null -ne $Apps) {
+        if ($Apps -is [array]) { $arr = $Apps } else { $arr = @($Apps) }
+    }
+    $supported = @('Streamlit','Django','Dash','Flask')
+    $filtered = $arr | Where-Object { $_ -and $_.Type -and ($supported -contains $_.Type) }
+    return (Deduplicate-AppsByName -Apps @($filtered))
+}
+
 # Resolve pwsh path
 $pwshCmd = Get-Command -Name 'pwsh' -ErrorAction SilentlyContinue
 if (-not $pwshCmd) {
     throw "'pwsh' was not found in PATH. Please ensure PowerShell 7+ is installed."
 }
 $pwshPath = $pwshCmd.Source
-
-# Dynamic URL prefix detection functions
-function Get-NetworkUrlPrefix {
-    try {
-        # Get the primary network adapter's IP address
-        $networkAdapter = Get-NetIPAddress -AddressFamily IPv4 | Where-Object {
-            $_.IPAddress -notlike "127.*" -and 
-            $_.IPAddress -notlike "169.254.*" -and
-            $_.PrefixOrigin -eq "Dhcp" -or $_.PrefixOrigin -eq "Manual"
-        } | Sort-Object InterfaceIndex | Select-Object -First 1
-        
-        if ($networkAdapter) {
-            return "http://$($networkAdapter.IPAddress)"
-        }
-        
-        # Fallback: try to get any non-loopback IPv4 address
-        $fallbackAdapter = Get-NetIPAddress -AddressFamily IPv4 | Where-Object {
-            $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*"
-        } | Select-Object -First 1
-        
-        if ($fallbackAdapter) {
-            return "http://$($fallbackAdapter.IPAddress)"
-        }
-    } catch {
-        Write-Warning "Failed to detect network IP: $($_.Exception.Message)"
-    }
-    
-    # Ultimate fallback
-    return "http://10.17.62.232"
-}
-
-function Get-ExternalUrlPrefix {
-    try {
-        # Try to get external IP using a web service
-        $externalIP = Invoke-RestMethod -Uri "https://api.ipify.org" -TimeoutSec 5 -ErrorAction Stop
-        if ($externalIP -and $externalIP -match '^\d+\.\d+\.\d+\.\d+$') {
-            return "http://$externalIP"
-        }
-    } catch {
-        Write-Warning "Failed to detect external IP via ipify.org: $($_.Exception.Message)"
-    }
-    
-    try {
-        # Alternative service
-        $externalIP = Invoke-RestMethod -Uri "https://ifconfig.me/ip" -TimeoutSec 5 -ErrorAction Stop
-        if ($externalIP -and $externalIP -match '^\d+\.\d+\.\d+\.\d+$') {
-            return "http://$externalIP"
-        }
-    } catch {
-        Write-Warning "Failed to detect external IP via ifconfig.me: $($_.Exception.Message)"
-    }
-    
-    # Ultimate fallback
-    return "http://203.1.252.70"
-}
 
 # Detect URL prefixes
 $script:networkUrlPrefix = Get-NetworkUrlPrefix
@@ -168,61 +196,6 @@ Write-Host "Detected External URL prefix: $script:externalUrlPrefix"
 # Load apps.json
 $jsonFilePath = "$PSScriptRoot\apps.json"
 Write-Host "Reading apps from: $jsonFilePath"
-
-# Dynamic URL prefix detection functions
-function Get-NetworkUrlPrefix {
-    try {
-        # Get the primary network adapter's IP address
-        $networkAdapter = Get-NetIPAddress -AddressFamily IPv4 | Where-Object {
-            $_.IPAddress -notlike "127.*" -and 
-            $_.IPAddress -notlike "169.254.*" -and
-            $_.PrefixOrigin -eq "Dhcp" -or $_.PrefixOrigin -eq "Manual"
-        } | Sort-Object InterfaceIndex | Select-Object -First 1
-        
-        if ($networkAdapter) {
-            return "http://$($networkAdapter.IPAddress)"
-        }
-        
-        # Fallback: try to get any non-loopback IPv4 address
-        $fallbackAdapter = Get-NetIPAddress -AddressFamily IPv4 | Where-Object {
-            $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*"
-        } | Select-Object -First 1
-        
-        if ($fallbackAdapter) {
-            return "http://$($fallbackAdapter.IPAddress)"
-        }
-    } catch {
-        Write-Warning "Failed to detect network IP: $($_.Exception.Message)"
-    }
-    
-    # Ultimate fallback
-    return "http://10.17.62.232"
-}
-
-function Get-ExternalUrlPrefix {
-    try {
-        # Try to get external IP using a web service
-        $externalIP = Invoke-RestMethod -Uri "https://api.ipify.org" -TimeoutSec 5 -ErrorAction Stop
-        if ($externalIP -and $externalIP -match '^\d+\.\d+\.\d+\.\d+$') {
-            return "http://$externalIP"
-        }
-    } catch {
-        Write-Warning "Failed to detect external IP via ipify.org: $($_.Exception.Message)"
-    }
-    
-    try {
-        # Alternative service
-        $externalIP = Invoke-RestMethod -Uri "https://ifconfig.me/ip" -TimeoutSec 5 -ErrorAction Stop
-        if ($externalIP -and $externalIP -match '^\d+\.\d+\.\d+\.\d+$') {
-            return "http://$externalIP"
-        }
-    } catch {
-        Write-Warning "Failed to detect external IP via ifconfig.me: $($_.Exception.Message)"
-    }
-    
-    # Ultimate fallback
-    return "http://203.1.252.70"
-}
 
 if (-not (Test-Path $jsonFilePath)) {
     try {
@@ -241,11 +214,7 @@ if (-not (Test-Path $jsonFilePath)) {
 }
 
 $apps = Get-Content $jsonFilePath | ConvertFrom-Json
-if ($apps -isnot [array]) { $apps = @($apps) }
-
-# Filter to supported app types
-$apps = $apps | Where-Object { $_.Type -and ( @('Streamlit','Django','Dash','Flask') -contains $_.Type ) }
-$apps = Deduplicate-AppsByName -Apps @($apps)
+$apps = Normalize-AppsList -Apps $apps
 
 if ($AppName) {
     $apps = $apps | Where-Object { $_.Name -ieq $AppName }
@@ -668,7 +637,6 @@ function Get-PackageManager {
 }
 
 # ===== Helpers for CRUD on apps.json (ported from manage_apps_withbasepath_uv.ps1) =====
-
 # Convert a PSObject to a hashtable
 function ConvertTo-Hashtable {
     param (
@@ -693,15 +661,7 @@ function ConvertTo-Hashtable {
     return $hashtable
 }
 
-# Return apps list with unique Names (case-insensitive), keeping first occurrence
-function Deduplicate-AppsByName {
-    param(
-        [Parameter(Mandatory=$true)]
-        [AllowEmptyCollection()]
-        [array]$Apps
-    )
-    return @($Apps | Group-Object { $_.Name.ToString().ToLowerInvariant() } | ForEach-Object { $_.Group | Select-Object -First 1 })
-}
+# ...
 
 # Test if directory looks like a venv (has Scripts/activate.bat)
 function Test-Venv {
@@ -838,12 +798,31 @@ function Get-PortNumber {
                 } while ($portCheck.TcpTestSucceeded -eq $true)
             } else {
                 $port = [int]$port
-                $portCheck = Test-NetConnection -ComputerName "localhost" -Port $Port
-                if ($portCheck.TcpTestSucceeded -eq $true) { Write-Host "Port $Port is already in use. Please enter a different port." }
+                $portCheck = Test-NetConnection -ComputerName "localhost" -Port $port
+                if ($portCheck.TcpTestSucceeded -eq $true) { Write-Host "Port $port is already in use. Please enter a different port." }
             }
         } while ($portCheck.TcpTestSucceeded -eq $true)
         return $port
     }
+}
+
+# Locate Windows Terminal executable if available; returns tuple-like PSCustomObject
+function Get-WindowsTerminalPath {
+    $wtPaths = @(
+        "wt.exe",  # In PATH
+        "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe",  # WindowsApps shortcut
+        "C:\\Program Files\\WindowsApps\\Microsoft.WindowsTerminal_*\\wt.exe"  # Direct executable
+    )
+    foreach ($path in $wtPaths) {
+        if ($path -like "*\\*") {
+            $found = Get-ChildItem $path -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($found) { return [pscustomobject]@{ Available=$true; Path=$found.FullName } }
+        } else {
+            $cmd = Get-Command $path -ErrorAction SilentlyContinue
+            if ($cmd) { return [pscustomobject]@{ Available=$true; Path=$cmd.Source } }
+        }
+    }
+    return [pscustomobject]@{ Available=$false; Path=$null }
 }
 
 # Save global apps back to JSON (with confirmation)
@@ -855,9 +834,7 @@ function Update-Json {
             Write-Host "Apps list saved successfully to $jsonFilePath."
             # Refresh $apps from file so UI reflects latest saved changes
             $apps = Get-Content $jsonFilePath | ConvertFrom-Json
-            if ($apps -isnot [array]) { $apps = @($apps) }
-            $apps = $apps | Where-Object { $_.Type -and ( @('Streamlit','Django','Dash','Flask') -contains $_.Type ) }
-            $apps = Deduplicate-AppsByName -Apps @($apps)
+            $apps = Normalize-AppsList -Apps $apps
             # Keep in-memory editable list in sync as hashtables (deduped)
             $global:apps = @()
             foreach ($a in $apps) { $global:apps += (ConvertTo-Hashtable -Object $a) }
@@ -1312,35 +1289,9 @@ function Start-AppsList {
         [array]$AppList
     )
     # Check if Windows Terminal is available
-    $wtAvailable = $false
-    $wtPath = $null
-    
-    # Try to find Windows Terminal in common locations
-    $wtPaths = @(
-        "wt.exe",  # In PATH
-        "$env:LOCALAPPDATA\Microsoft\WindowsApps\wt.exe",  # WindowsApps shortcut
-        "C:\Program Files\WindowsApps\Microsoft.WindowsTerminal_*\wt.exe"  # Direct executable
-    )
-    
-    foreach ($path in $wtPaths) {
-        if ($path -like "*\*") {
-            # This is a file path, check if it exists
-            $found = Get-ChildItem $path -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($found) {
-                $wtPath = $found.FullName
-                $wtAvailable = $true
-                break
-            }
-        } else {
-            # This is a command name, try to get it
-            $cmd = Get-Command $path -ErrorAction SilentlyContinue
-            if ($cmd) {
-                $wtPath = $cmd.Source
-                $wtAvailable = $true
-                break
-            }
-        }
-    }
+    $wtInfo = Get-WindowsTerminalPath
+    $wtAvailable = $wtInfo.Available
+    $wtPath = $wtInfo.Path
 
     foreach ($app in $AppList) {
         $name = Get-FieldValue -Object $app -Name 'Name'

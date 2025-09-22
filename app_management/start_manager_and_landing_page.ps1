@@ -38,14 +38,14 @@ function Find-ScriptPath {
 }
 
 $script1 = Find-ScriptPath 'run_apps_tab_html.ps1'
-$script2 = Find-ScriptPath 'generate_app_index.ps1'
+$script2 = Find-ScriptPath 'generate_landing_page.ps1'
 
 if (-not $script1) {
   Write-Error "Cannot find 'run_apps_tab_html.ps1'. Checked: $PSScriptRoot, parent folders, and current directory."
   exit 1
 }
 if (-not $script2) {
-  Write-Error "Cannot find 'generate_app_index.ps1'. Checked: $PSScriptRoot, parent folders, and current directory."
+  Write-Error "Cannot find 'generate_landing_page.ps1'. Checked: $PSScriptRoot, parent folders, and current directory."
   exit 1
 }
 
@@ -107,13 +107,21 @@ $shellExe = '"' + $shellExePath + '"'
 # Use 'new-tab' so wt treats the first action as a new tab, then split-pane for the second.
 # Use '-File "path"' to avoid command-line parsing issues with -Command and quoting.
 $splitFlag = if ($Split -eq 'Right') { '-V' } else { '-H' } # -V = vertical (side by side), -H = horizontal (stacked)
-$wtArgs = "new-tab $shellExe -NoExit -NoProfile -ExecutionPolicy Bypass -File `"$script1`" ; split-pane $splitFlag $shellExe -NoExit -NoProfile -ExecutionPolicy Bypass -File `"$script2`""
+# Build wt arguments as an array and request an existing window (-w 0) so Windows Terminal
+# will open the tab in an existing window instead of creating a new window.
+$wtArgs = @(
+  '-w', '0',
+  'new-tab', '--', $shellExePath, '-NoExit', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script1,
+  ';',
+  'split-pane', $splitFlag, '--', $shellExePath, '-NoExit', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script2
+)
 
-Write-Output "Full wt argument string: $wtArgs"
+$wtArgsString = ($wtArgs -join ' ')
+Write-Output "Full wt argument string: $wtArgsString"
 
 # Print exact pwsh invocation strings for clarity
-$pane1 = "$shellExe -NoExit -NoProfile -ExecutionPolicy Bypass -File `"$script1`""
-$pane2 = "$shellExe -NoExit -NoProfile -ExecutionPolicy Bypass -File `"$script2`""
+$pane1 = "`"$shellExePath`" -NoExit -NoProfile -ExecutionPolicy Bypass -File `"$script1`""
+$pane2 = "`"$shellExePath`" -NoExit -NoProfile -ExecutionPolicy Bypass -File `"$script2`""
 Write-Output "Pane1 invocation: $pane1"
 Write-Output "Pane2 invocation: $pane2"
 Write-Output "Split orientation: $Split ($splitFlag)"
@@ -121,7 +129,7 @@ Write-Output "Split orientation: $Split ($splitFlag)"
 # Use full path to wt when possible
 $wtExePath = $wtCmd.Source
 
-Write-Output "Launching: $wtExePath $wtArgs"
+Write-Output "Launching: $wtExePath $wtArgsString"
 
 Write-Output "Launching Windows Terminal..."
 # -NoNewWindow cannot be used with -WindowStyle; remove it so wt launches correctly

@@ -32,4 +32,15 @@ Edge cases and troubleshooting:
 - ExecutionPolicy: If scripts are blocked, run PowerShell as Administrator and set a policy (e.g., `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser`) or use the wrapper which passes `-ExecutionPolicy Bypass`.
 - Paths: The one-liner uses absolute paths. If you move the repo, update the paths or run the wrapper from the folder so it resolves scripts relative to itself.
 - Windows Terminal: If `wt` isn't found, install Windows Terminal from the Microsoft Store or ensure `wt.exe` is on PATH.
+ 
+Update (2025-09-23): The wrapper `start_manager_and_landing_page.ps1` now requests Windows Terminal to open the launched panes as a new tab in an existing Windows Terminal window (it passes `-w 0` to `wt`). This prevents spawning a separate WT window for each run and keeps the manager and index in the same terminal window as tabs/panes.
+
+To use the wrapper:
+
+```powershell
+cd C:\Users\rchan09\code\app_management
+.\start_manager_and_landing_page.ps1
+```
+
+If you prefer the original behavior (always open a new WT window), edit `start_manager_and_landing_page.ps1` and remove the `-w 0` arguments from the `wt` invocation.
 # app_management
