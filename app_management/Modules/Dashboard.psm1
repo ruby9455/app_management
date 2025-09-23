@@ -19,7 +19,8 @@ function New-AppDashboardHtml {
     param(
         [Parameter(Mandatory)] [array]$Apps,
         [Parameter(Mandatory)] [string]$NetworkUrlPrefix,
-        [Parameter(Mandatory)] [string]$ExternalUrlPrefix
+        [Parameter(Mandatory)] [string]$ExternalUrlPrefix,
+        [string]$GenericUrlPrefix
     )
 
     function Get-FieldValueLocal {
@@ -39,19 +40,23 @@ function New-AppDashboardHtml {
 
         $internal = ''
         $external = ''
+        $generic  = ''
         if ($type -and $type -match '^(?i:streamlit|dash|flask)$' -and $port) {
             $bp = if ($basePath) { $basePath.Trim('/') } else { '' }
             $pathSuffix = if ($bp) { "/$bp" } else { '' }
             $internal = "${NetworkUrlPrefix}:$port$pathSuffix"
             $external = "${ExternalUrlPrefix}:$port$pathSuffix"
+            if (-not [string]::IsNullOrWhiteSpace($GenericUrlPrefix)) { $generic = "${GenericUrlPrefix}:$port$pathSuffix" }
         } elseif ($type -and $type -match '^(?i:django)$' -and $port) {
             # Django default host should be 127.0.0.1 for development
             $internal = "http://127.0.0.1:$port"
             $external = "${ExternalUrlPrefix}:$port"
+            if (-not [string]::IsNullOrWhiteSpace($GenericUrlPrefix)) { $generic = "${GenericUrlPrefix}:$port" }
         } else {
             # No port => no runnable URL, show placeholder
             $internal = '-'
             $external = '-'
+            $generic  = '-'
         }
 
         $rows += @"
@@ -59,6 +64,7 @@ function New-AppDashboardHtml {
                 <td>$([System.Web.HttpUtility]::HtmlEncode($name))</td>
                 <td>$([System.Web.HttpUtility]::HtmlEncode($type))</td>
                 <td>$(if ($internal -ne '-') { "<a href='$internal' target='_blank'>$internal</a>" } else { '-' })</td>
+                <td>$(if ($generic -and $generic -ne '-') { "<a href='$generic' target='_blank'>$generic</a>" } else { '-' })</td>
                 <td>$(if ($external -ne '-') { "<a href='$external' target='_blank'>$external</a>" } else { '-' })</td>
                 <td>$([System.Web.HttpUtility]::HtmlEncode($indexPath))</td>
             </tr>
@@ -103,7 +109,7 @@ function New-AppDashboardHtml {
 </head>
 <body>
   <h1>Apps Dashboard</h1>
-  <p>Internal prefix: <code>$NetworkUrlPrefix</code> | External prefix: <code>$ExternalUrlPrefix</code></p>
+    <p>Internal prefix: <code>$NetworkUrlPrefix</code> | Generic prefix: <code>$GenericUrlPrefix</code> | External prefix: <code>$ExternalUrlPrefix</code></p>
   <input id="q" type="search" placeholder="Filter apps..." oninput="filterTable()" style="padding:.5rem; width: 50%" />
   <table id="apps">
     <caption>Available Applications</caption>
@@ -111,8 +117,9 @@ function New-AppDashboardHtml {
       <tr>
         <th>Name</th>
         <th>Type</th>
-        <th>Internal URL</th>
-        <th>External URL</th>
+    <th>Internal URL</th>
+    <th>Generic URL</th>
+    <th>External URL</th>
         <th>Index Path</th>
       </tr>
     </thead>
@@ -145,7 +152,8 @@ function New-AppDashboardHtml {
     param(
         [Parameter(Mandatory=$true)] [array]$Apps,
         [string]$NetworkUrlPrefix,
-        [string]$ExternalUrlPrefix
+        [string]$ExternalUrlPrefix,
+        [string]$GenericUrlPrefix
     )
 
     # Filter to apps with ports
@@ -154,6 +162,7 @@ function New-AppDashboardHtml {
 
     if ([string]::IsNullOrWhiteSpace($NetworkUrlPrefix)) { $NetworkUrlPrefix = Get-NetworkUrlPrefix }
     if ([string]::IsNullOrWhiteSpace($ExternalUrlPrefix)) { $ExternalUrlPrefix = Get-ExternalUrlPrefix }
+    if ([string]::IsNullOrWhiteSpace($GenericUrlPrefix)) { $GenericUrlPrefix = Get-GenericUrlPrefix }
 
     $html = @"
 <!DOCTYPE html>
@@ -275,7 +284,8 @@ function New-AppDashboardHtml {
         } else {
             $networkUrl = "$NetworkUrlPrefix`:$port$basePathStr"
         }
-        $externalUrl = "$ExternalUrlPrefix`:$port$basePathStr"
+    $externalUrl = "$ExternalUrlPrefix`:$port$basePathStr"
+    $genericUrl = "$GenericUrlPrefix`:$port$basePathStr"
 
         $html += @"
             <div class="app-card">
@@ -290,6 +300,10 @@ function New-AppDashboardHtml {
                     <a href="$networkUrl" target="_blank" class="url-link">$networkUrl</a>
                 </div>
                 <div class="url-section">
+                    <div class="url-label">🔗 Generic URL</div>
+                    <a href="$genericUrl" target="_blank" class="url-link">$genericUrl</a>
+                </div>
+                <div class="url-section">
                     <div class="url-label">🌍 External URL</div>
                     <a href="$externalUrl" target="_blank" class="url-link">$externalUrl</a>
                 </div>
@@ -300,7 +314,7 @@ function New-AppDashboardHtml {
     $html += @"
         </div>
         <div class="footer">
-            <p>Generated on $(Get-Date -Format "yyyy-MM-dd HH:mm:ss") | Network: $NetworkUrlPrefix | External: $ExternalUrlPrefix</p>
+            <p>Generated on $(Get-Date -Format "yyyy-MM-dd HH:mm:ss") | Network: $NetworkUrlPrefix | Generic: $GenericUrlPrefix | External: $ExternalUrlPrefix</p>
         </div>
     </div>
 </body>

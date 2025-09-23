@@ -55,9 +55,11 @@ if (-not $apps -or (@($apps).Count -eq 0)) {
 # Detect URL prefixes
 $networkUrlPrefix = UrlHelpers\Get-NetworkUrlPrefix
 $externalUrlPrefix = UrlHelpers\Get-ExternalUrlPrefix
+$genericUrlPrefix  = UrlHelpers\Get-GenericUrlPrefix
 
 Write-Host "Detected Network URL prefix: $networkUrlPrefix"
 Write-Host "Detected External URL prefix: $externalUrlPrefix"
+Write-Host "Detected Generic URL prefix: $genericUrlPrefix"
 
 # Import Dashboard module
 try {
@@ -67,7 +69,7 @@ try {
 
 # Generate HTML content using shared module
 Write-Host "Generating HTML index page..."
-$htmlContent = Dashboard\New-AppDashboardHtml -Apps $apps -NetworkUrlPrefix $networkUrlPrefix -ExternalUrlPrefix $externalUrlPrefix
+$htmlContent = Dashboard\New-AppDashboardHtml -Apps $apps -NetworkUrlPrefix $networkUrlPrefix -ExternalUrlPrefix $externalUrlPrefix -GenericUrlPrefix $genericUrlPrefix
 
 # Save HTML file
 $htmlFilePath = "$PSScriptRoot\app_index.html"

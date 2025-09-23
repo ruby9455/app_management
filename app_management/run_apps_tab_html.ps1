@@ -88,9 +88,11 @@ $pwshPath = $pwshCmd.Source
 # Detect URL prefixes
 $script:networkUrlPrefix = Get-NetworkUrlPrefix
 $script:externalUrlPrefix = Get-ExternalUrlPrefix
+$script:genericUrlPrefix  = Get-GenericUrlPrefix
 
 Write-Host "Detected Network URL prefix: $script:networkUrlPrefix"
 Write-Host "Detected External URL prefix: $script:externalUrlPrefix"
+Write-Host "Detected Generic URL prefix: $script:genericUrlPrefix"
 
 ## Load apps.json via ConfigHelpers
 $jsonFilePath = Get-AppsJsonFilePath -ScriptRoot $PSScriptRoot
@@ -180,9 +182,11 @@ function Generate-HtmlDashboard {
     $currentApps = Get-CurrentAppsList
     $networkUrlPrefix = Get-NetworkUrlPrefix
     $externalUrlPrefix = Get-ExternalUrlPrefix
+    $genericUrlPrefix  = Get-GenericUrlPrefix
     Write-Host "Detected Network URL prefix: $networkUrlPrefix"
     Write-Host "Detected External URL prefix: $externalUrlPrefix"
-    $html = New-AppDashboardHtml -Apps $currentApps -NetworkUrlPrefix $networkUrlPrefix -ExternalUrlPrefix $externalUrlPrefix
+    Write-Host "Detected Generic URL prefix: $genericUrlPrefix"
+    $html = New-AppDashboardHtml -Apps $currentApps -NetworkUrlPrefix $networkUrlPrefix -ExternalUrlPrefix $externalUrlPrefix -GenericUrlPrefix $genericUrlPrefix
     $htmlFilePath = "$PSScriptRoot\app_index.html"
     $html | Out-File -FilePath $htmlFilePath -Encoding UTF8
     Write-Host "HTML dashboard saved to: $htmlFilePath"

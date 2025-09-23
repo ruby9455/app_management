@@ -125,7 +125,24 @@ function Get-ExternalUrlPrefix {
     return $script:DEFAULT_EXTERNAL_URL_FALLBACK
 }
 
+# Returns an HTTP URL prefix using the local computer name, e.g. "http://SAH0241627"
+function Get-GenericUrlPrefix {
+    try {
+        # Prefer COMPUTERNAME env var; fallback to DNS hostname
+        $hostName = $env:COMPUTERNAME
+        if ([string]::IsNullOrWhiteSpace($hostName)) {
+            $hostName = [System.Net.Dns]::GetHostName()
+        }
+        if ([string]::IsNullOrWhiteSpace($hostName)) { return (Get-NetworkUrlPrefix) }
+        return "http://$hostName"
+    } catch {
+        # Fallback to network or localhost
+        return (Get-NetworkUrlPrefix)
+    }
+}
+
 Export-ModuleMember -Function @(
     'Get-NetworkUrlPrefix',
-    'Get-ExternalUrlPrefix'
+    'Get-ExternalUrlPrefix',
+    'Get-GenericUrlPrefix'
 )
