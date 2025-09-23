@@ -1,0 +1,37 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run PowerShell tests",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-NoLogo",
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"& { pwsh -File ./app_management/app_management/tests/Test-AppHelpers.ps1; pwsh -File ./app_management/app_management/tests/Test-TerminalHelpers.ps1 }"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Run PowerShell tests (abs)",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-NoLogo",
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"& { & 'c:/Users/rchan09/code/app_management/app_management/tests/Test-AppHelpers.ps1'; & 'c:/Users/rchan09/code/app_management/app_management/tests/Test-TerminalHelpers.ps1' }"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
+}
