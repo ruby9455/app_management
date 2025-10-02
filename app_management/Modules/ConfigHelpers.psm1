@@ -66,7 +66,7 @@ function Save-AppsInteractive {
             $EditableApps | ConvertTo-Json -Depth 10 | Set-Content -Path $JsonFilePath -Encoding UTF8
             Write-Host "Apps list saved successfully to $JsonFilePath."
             # reload from file (read-only view)
-            $apps = Read-AppsFromJson -JsonFilePath $JsonFilePath
+            $apps = Get-AppsFromJson -JsonFilePath $JsonFilePath
             # refresh editable list (deduped)
             $editable = Initialize-EditableApps -Apps $apps
             return [pscustomobject]@{ Apps = $apps; EditableApps = $editable }
