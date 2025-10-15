@@ -198,14 +198,106 @@ function Get-IndexPyFile {
     )
     $allPyFiles = Get-AllUniquePyFile -ProjectDirectory $ProjectDirectory
     if ($allPyFiles -isnot [array]) { $allPyFiles = @($allPyFiles) }
+
+    # Build a display list with indices and relative paths for user-friendly output
+    $items = @()
     for ($i = 0; $i -lt $allPyFiles.Length; $i++) {
-        $relativePath = $allPyFiles[$i] -replace [regex]::Escape($ProjectDirectory), '~'
-        $relativePath = $relativePath -replace '\\', '/'
-        Write-Host ("{0}: {1}" -f ($i+1), $relativePath)
+        $fullPath = $allPyFiles[$i]
+        $displayPath = $fullPath -replace [regex]::Escape($ProjectDirectory), '~'
+        $displayPath = $displayPath -replace '\\', '/'
+        $relative = $fullPath.Substring($ProjectDirectory.Length + 1)
+        $items += [pscustomobject]@{
+            Index    = $i + 1
+            FullPath = $fullPath
+            Relative = $relative
+            Display  = $displayPath
+        }
     }
-    $indexPage = [int](Read-Host "Enter the index of the index python file")
-    $indexPage = $indexPage - 1
-    $selectedPyFile = $allPyFiles[$indexPage]
+
+    # Initial full list
+    foreach ($it in $items) {
+        Write-Host ("{0}: {1}" -f $it.Index, $it.Display)
+    }
+
+    # Helper to perform a simple fuzzy (subsequence) match, case-insensitive
+    function Invoke-FuzzyMatch {
+        param(
+            [Parameter(Mandatory=$true)][string]$Query,
+            [Parameter(Mandatory=$true)][object[]]$SourceItems
+        )
+        # If the query contains path separators or a dot, prefer simple substring search to reduce overmatching
+        if ($Query -match "[\\/\.]") {
+            $q = $Query.ToLowerInvariant()
+            return @(
+                $SourceItems | Where-Object {
+                    ($_.Relative -replace '\\','/').ToLowerInvariant().Contains($q) -or $_.Display.ToLowerInvariant().Contains($q)
+                }
+            )
+        }
+
+        # Otherwise, use a subsequence regex: abc -> a.*b.*c (case-insensitive)
+        $pattern = ($Query.ToCharArray() | ForEach-Object { [regex]::Escape($_) }) -join '.*'
+        if ([string]::IsNullOrWhiteSpace($pattern)) { return @() }
+        $regex = [regex]::new($pattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+        return @($SourceItems | Where-Object { $regex.IsMatch(($_.Relative -replace '\\','/')) -or $regex.IsMatch($_.Display) })
+    }
+
+    $chosen = $null
+    do {
+        $input = Read-Host "Enter the index of the index python file (or type to fuzzy-search; 'q' to cancel)"
+        if ($null -eq $input) { continue }
+        $input = [string]$input
+
+        if ($input -match '^(?i:q|quit|exit)$') { return $null }
+
+        if ($input -match '^\d+$') {
+            $idx = [int]$input
+            if ($idx -ge 1 -and $idx -le $items.Count) {
+                $chosen = $items[$idx - 1]
+                break
+            } else {
+                Write-Host "Invalid index. Please enter a number between 1 and $($items.Count)."
+                continue
+            }
+        }
+
+        # Fuzzy search branch
+        $fuzzyMatches = Invoke-FuzzyMatch -Query $input -SourceItems $items
+        if ($fuzzyMatches.Count -eq 0) {
+            Write-Host "No matches found for '$input'. Try again."
+            continue
+        }
+        if ($fuzzyMatches.Count -eq 1) {
+            $chosen = $fuzzyMatches[0]
+            break
+        }
+
+        # Multiple matches: show a compact list and allow picking or refining
+        Write-Host ("Multiple matches found ($($fuzzyMatches.Count)):")
+        for ($i = 0; $i -lt $fuzzyMatches.Count; $i++) {
+            Write-Host ("[{0}] {1}" -f ($i+1), $fuzzyMatches[$i].Display)
+        }
+        $sub = Read-Host "Enter a number 1..$($fuzzyMatches.Count) to pick, or type more text to refine"
+        if ($sub -match '^\d+$') {
+            $subIdx = [int]$sub
+            if ($subIdx -ge 1 -and $subIdx -le $fuzzyMatches.Count) {
+                $chosen = $fuzzyMatches[$subIdx - 1]
+                break
+            } else {
+                Write-Host "Invalid selection."
+                continue
+            }
+        } elseif (-not [string]::IsNullOrWhiteSpace($sub)) {
+            # Treat as a refined query and loop again
+            $input = $sub
+            continue
+        } else {
+            continue
+        }
+    } while ($true)
+
+    # Return the relative path like original implementation
+    $selectedPyFile = $chosen.FullPath
     $selectedPyFile = $selectedPyFile.Substring($ProjectDirectory.Length + 1)
     return $selectedPyFile
 }
