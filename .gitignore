@@ -2,3 +2,6 @@ apps.json
 apps_test.json
 debug/
 *.html
+
+# AI model files
+.ai
