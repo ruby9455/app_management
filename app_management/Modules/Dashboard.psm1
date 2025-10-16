@@ -1,149 +1,13 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-function New-AppDashboardHtml {
-    <#
-    .SYNOPSIS
-    Generates a simple HTML dashboard listing app links for internal/external access.
-
-    .PARAMETER Apps
-    Array of app objects/hashtables with fields: Name, Type, AppPath, IndexPath, Port, BasePath.
-
-    .PARAMETER NetworkUrlPrefix
-    The local/network URL prefix like http://192.168.1.10
-
-    .PARAMETER ExternalUrlPrefix
-    The external/public URL prefix like http://203.0.113.10
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)] [array]$Apps,
-        [Parameter(Mandatory)] [string]$NetworkUrlPrefix,
-        [Parameter(Mandatory)] [string]$ExternalUrlPrefix,
-        [string]$GenericUrlPrefix
-    )
-
-    function Get-FieldValueLocal {
-        param([object]$o, [string]$Name)
-        if ($null -eq $o) { return $null }
-        if ($o -is [hashtable]) { return $o[$Name] }
-        return ($o.$Name)
-    }
-
-    $rows = @()
-    foreach ($app in $Apps) {
-        $name = Get-FieldValueLocal $app 'Name'
-        $type = Get-FieldValueLocal $app 'Type'
-        $port = Get-FieldValueLocal $app 'Port'
-        $basePath = Get-FieldValueLocal $app 'BasePath'
-        $indexPath = Get-FieldValueLocal $app 'IndexPath'
-
-        $internal = ''
-        $external = ''
-        $generic  = ''
-        if ($type -and $type -match '^(?i:streamlit|dash|flask)$' -and $port) {
-            $bp = if ($basePath) { $basePath.Trim('/') } else { '' }
-            $pathSuffix = if ($bp) { "/$bp" } else { '' }
-            $internal = "${NetworkUrlPrefix}:$port$pathSuffix"
-            $external = "${ExternalUrlPrefix}:$port$pathSuffix"
-            if (-not [string]::IsNullOrWhiteSpace($GenericUrlPrefix)) { $generic = "${GenericUrlPrefix}:$port$pathSuffix" }
-        } elseif ($type -and $type -match '^(?i:django)$' -and $port) {
-            # Django default host should be 127.0.0.1 for development
-            $internal = "http://127.0.0.1:$port"
-            $external = "${ExternalUrlPrefix}:$port"
-            if (-not [string]::IsNullOrWhiteSpace($GenericUrlPrefix)) { $generic = "${GenericUrlPrefix}:$port" }
-        } else {
-            # No port => no runnable URL, show placeholder
-            $internal = '-'
-            $external = '-'
-            $generic  = '-'
-        }
-
-        $rows += @"
-            <tr>
-                <td>$([System.Web.HttpUtility]::HtmlEncode($name))</td>
-                <td>$([System.Web.HttpUtility]::HtmlEncode($type))</td>
-                <td>$(if ($internal -ne '-') { "<a href='$internal' target='_blank'>$internal</a>" } else { '-' })</td>
-                <td>$(if ($generic -and $generic -ne '-') { "<a href='$generic' target='_blank'>$generic</a>" } else { '-' })</td>
-                <td>$(if ($external -ne '-') { "<a href='$external' target='_blank'>$external</a>" } else { '-' })</td>
-                <td>$([System.Web.HttpUtility]::HtmlEncode($indexPath))</td>
-            </tr>
-"@
-    }
-
-    $tableRows = ($rows -join "`n")
-    $html = @"
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Apps Dashboard</title>
-  <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 2rem; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border: 1px solid #ddd; padding: 8px; }
-    th { background: #f4f4f4; text-align: left; }
-    tr:nth-child(even) { background: #fafafa; }
-    caption { text-align: left; font-size: 1.25rem; margin-bottom: .5rem; }
-  </style>
-  <script>
-    function filterTable() {
-      const q = document.getElementById('q').value.toLowerCase();
-      const rows = document.querySelectorAll('#apps tbody tr');
-      rows.forEach(r => {
-        const text = r.innerText.toLowerCase();
-        r.style.display = text.includes(q) ? '' : 'none';
-      });
-    }
-  </script>
-  <link rel="icon" href="data:,">
-  <meta http-equiv="Cache-Control" content="no-store" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
-  <base target="_blank">
-  <meta name="referrer" content="no-referrer" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data:;">
-  <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()">
-  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
-</head>
-<body>
-  <h1>Apps Dashboard</h1>
-    <p>Internal prefix: <code>$NetworkUrlPrefix</code> | Generic prefix: <code>$GenericUrlPrefix</code> | External prefix: <code>$ExternalUrlPrefix</code></p>
-  <input id="q" type="search" placeholder="Filter apps..." oninput="filterTable()" style="padding:.5rem; width: 50%" />
-  <table id="apps">
-    <caption>Available Applications</caption>
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Type</th>
-    <th>Internal URL</th>
-    <th>Generic URL</th>
-    <th>External URL</th>
-        <th>Index Path</th>
-      </tr>
-    </thead>
-    <tbody>
-      $tableRows
-    </tbody>
-  </table>
-</body>
-</html>
-"@
-
-    return $html
-}
-
-Export-ModuleMember -Function New-AppDashboardHtml
-Set-StrictMode -Version Latest
-$ErrorActionPreference = 'Stop'
-
 try {
-    if (-not (Get-Module -Name UrlHelpers -ListAvailable)) {
-        Import-Module -Force (Join-Path (Split-Path $PSScriptRoot -Parent) 'Modules/UrlHelpers.psm1')
+    $modulePath = Split-Path $PSScriptRoot -Parent
+    if (-not (Get-Module -Name UrlHelpers -ErrorAction SilentlyContinue)) {
+        Import-Module -Force (Join-Path $modulePath 'Modules/UrlHelpers.psm1') -ErrorAction SilentlyContinue
     }
-    if (-not (Get-Module -Name NetworkHelpers -ListAvailable)) {
-        Import-Module -Force (Join-Path (Split-Path $PSScriptRoot -Parent) 'Modules/NetworkHelpers.psm1')
+    if (-not (Get-Module -Name NetworkHelpers -ErrorAction SilentlyContinue)) {
+        Import-Module -Force (Join-Path $modulePath 'Modules/NetworkHelpers.psm1') -ErrorAction SilentlyContinue
     }
 } catch { }
 
@@ -156,13 +20,42 @@ function New-AppDashboardHtml {
         [string]$GenericUrlPrefix
     )
 
-    # Filter to apps with ports
-    $appsWithPorts = $Apps | Where-Object { $_ -and $_.PSObject.Properties.Name -contains 'Port' -and $_.Port -and $_.Port -gt 0 }
-    if (-not $appsWithPorts -or (@($appsWithPorts).Count -eq 0)) { return "<html><body><p>No apps with ports.</p></body></html>" }
+    # Ensure we have apps array
+    if (-not $Apps) { return "<html><body><p>No apps provided.</p></body></html>" }
+    
+    # Filter to apps with ports - make filtering more robust
+    $appsWithPorts = @($Apps | Where-Object { 
+        if ($_ -eq $null) { return $false }
+        if ($_ -is [System.Management.Automation.PSCustomObject] -or $_ -is [hashtable]) {
+            $port = $_.Port
+            return $port -and ([int]$port) -gt 0
+        }
+        return $false
+    })
+    
+    if ($appsWithPorts.Count -eq 0) { return "<html><body><p>No apps with ports.</p></body></html>" }
 
-    if ([string]::IsNullOrWhiteSpace($NetworkUrlPrefix)) { $NetworkUrlPrefix = Get-NetworkUrlPrefix }
-    if ([string]::IsNullOrWhiteSpace($ExternalUrlPrefix)) { $ExternalUrlPrefix = Get-ExternalUrlPrefix }
-    if ([string]::IsNullOrWhiteSpace($GenericUrlPrefix)) { $GenericUrlPrefix = Get-GenericUrlPrefix }
+    if ([string]::IsNullOrWhiteSpace($NetworkUrlPrefix)) { 
+        if (Get-Command -Name Get-NetworkUrlPrefix -ErrorAction SilentlyContinue) {
+            $NetworkUrlPrefix = Get-NetworkUrlPrefix
+        } else {
+            $NetworkUrlPrefix = "http://localhost"
+        }
+    }
+    if ([string]::IsNullOrWhiteSpace($ExternalUrlPrefix)) { 
+        if (Get-Command -Name Get-ExternalUrlPrefix -ErrorAction SilentlyContinue) {
+            $ExternalUrlPrefix = Get-ExternalUrlPrefix
+        } else {
+            $ExternalUrlPrefix = "http://localhost"
+        }
+    }
+    if ([string]::IsNullOrWhiteSpace($GenericUrlPrefix)) { 
+        if (Get-Command -Name Get-GenericUrlPrefix -ErrorAction SilentlyContinue) {
+            $GenericUrlPrefix = Get-GenericUrlPrefix
+        } else {
+            $GenericUrlPrefix = "http://localhost"
+        }
+    }
 
     $html = @"
 <!DOCTYPE html>
@@ -294,7 +187,10 @@ function New-AppDashboardHtml {
         $appType = $app.Type
 
         # Check if port is in use
-        $portInUse = Test-PortInUse -Port $port
+        $portInUse = $false
+        if (Get-Command -Name Test-PortInUse -ErrorAction SilentlyContinue) {
+            $portInUse = Test-PortInUse -Port $port
+        }
         $statusClass = if ($portInUse) { "status-running" } else { "status-stopped" }
         $statusText = if ($portInUse) { "Running" } else { "Stopped" }
 
