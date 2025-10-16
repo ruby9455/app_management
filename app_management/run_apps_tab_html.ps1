@@ -137,8 +137,8 @@ function Update-App {
     $name = $App.Name
     Write-Host "===== Update App '$name' ====="
     
-    # Stop the app first
-    Stop-AppByConfig -App $App
+    # Stop the app first (keep tab for restart)
+    Stop-AppByConfig -App $App -KeepTab
     # If the app has a port, wait briefly for it to free up
     if (Test-FieldHasValue -Object $App -Name 'Port') {
         $null = Wait-ForPortToBeFree -Port ([int](Get-FieldValue -Object $App -Name 'Port')) -TimeoutSeconds 10
@@ -275,7 +275,8 @@ function Show-MainMenu {
                 $appsToRestart = Get-AppsFromInput -InputValue $input -AppList $list
                 foreach ($appSel in $appsToRestart) {
                     # Stop the app's running process and wait for the port to be free
-                    Stop-AppByConfig -App $appSel
+                    # Use -KeepTab to preserve the terminal tab for restart
+                    Stop-AppByConfig -App $appSel -KeepTab
                     if (Test-FieldHasValue -Object $appSel -Name 'Port') {
                         $null = Wait-ForPortToBeFree -Port ([int](Get-FieldValue -Object $appSel -Name 'Port')) -TimeoutSeconds 10
                     }
