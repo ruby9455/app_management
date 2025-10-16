@@ -253,6 +253,7 @@ function Show-MainMenu {
                 $selectedApps = Get-AppsFromInput -InputValue $input -AppList $list
                 if ($selectedApps.Count -gt 0) {
                     Start-AppsList -AppList $selectedApps -PwshPath $pwshPath -DryRun:$DryRun
+                    Generate-HtmlDashboard
                 }
             }
             2 {
@@ -263,6 +264,7 @@ function Show-MainMenu {
                 $selectedApps = Get-AppsFromInput -InputValue $input -AppList $list
                 if ($selectedApps.Count -gt 0) {
                     $selectedApps | ForEach-Object { Stop-AppByConfig -App $_ }
+                    Generate-HtmlDashboard
                 }
             }
             3 {
@@ -282,6 +284,7 @@ function Show-MainMenu {
                     $targetName = Get-FieldValue -Object $appSel -Name 'Name'
                     Invoke-AppTabEnter -Title $targetName
                 }
+                Generate-HtmlDashboard
             }
             4 {
                 $list = Show-AppsTab
@@ -292,6 +295,7 @@ function Show-MainMenu {
                 foreach ($appSel in $appsToUpdate) {
                     Update-App -App $appSel -DryRun:$DryRun
                 }
+                Generate-HtmlDashboard
             }
             5 {
                 # Add app
