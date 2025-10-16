@@ -1,73 +1,89 @@
 # app_management
 
-This repository contains PowerShell helpers to manage and run local apps. It includes two main scripts used in this guide:
+This repository contains a set of PowerShell scripts and helper modules to manage, launch,
+and generate a dashboard for locally-hosted Python web apps (Streamlit, Django, Dash, Flask).
+The project is designed to be run from the `app_management` folder; modules are imported
+relative to the scripts (no global module installation required).
 
-- `run_apps_tab_html.ps1` — launches app tabs and dashboard (supports `-AppName`, `-AutoStart`, `-DryRun`)
-- `generate_landing_page.ps1` — generates the HTML landing page and runs a small HTTP server
+Top-level scripts
+-----------------
 
-## Launch both scripts in split panes (Windows Terminal)
+- `app_manager.ps1` (primary manager)
+	- Interactive app manager: list/start/stop/restart/update apps declared in `apps.json`.
+	- Launches apps in Windows Terminal tabs (preferred) or falls back to new PowerShell windows.
+	- Detects package manager (`uv` when `pyproject.toml` exists, otherwise `pip`), finds venvs,
+		and supports update hooks (git pull, dependency sync).
+	- Key options: `-AppName`, `-DryRun`, `-AutoStart`.
 
-If you want to run `run_apps_tab_html.ps1` and `generate_landing_page.ps1` simultaneously in separate panes inside Windows Terminal, you have two options:
+- `landing_page.ps1` (HTML landing page server / generator)
+	- Generates `app_index.html` using the `Dashboard` module and serves it over HTTP (default port 1111).
+	- Regenerates HTML on each request so the page reflects current app states.
 
-1) One-liner using `wt` (paste into PowerShell):
+- `start.ps1` (wrapper)
+	- Helper to launch the two scripts concurrently in Windows Terminal using `wt` (opens a new tab
+		and splits panes). Resolves absolute pwsh/wt paths and verifies the scripts exist.
 
-```powershell
-wt -w 0 new-tab pwsh -NoExit -NoProfile -ExecutionPolicy Bypass -Command & 'C:\Users\rchan09\code\app_management\app_management\run_apps_tab_html.ps1' ; split-pane -H pwsh -NoExit -NoProfile -ExecutionPolicy Bypass -Command & 'C:\Users\rchan09\code\app_management\app_management\generate_landing_page.ps1'
-```
+Helper modules (in `Modules/`)
+-----------------------------
 
-Notes:
-- Change `-H` to `-V` in `split-pane` for a vertical split.
-- Ensure `wt.exe` (Windows Terminal) is installed and available on PATH.
-- `-NoExit` keeps each pane open after the script completes so you can see output.
+- `AppHelpers.psm1`
+	- App-list utilities: normalize/dedupe apps, field getters/setters, venv detection, package manager
+		detection, fuzzy index-file picker, repo/venv update helpers.
 
-2) Use the provided wrapper script `start_manager_and_landing_page.ps1` (recommended):
+- `TerminalHelpers.psm1`
+	- Windows Terminal helpers and window/tab interaction: detect `wt.exe`, create new tabs, and
+		best-effort UI automation to send Enter/close a tab when needed.
 
-This script opens a new tab in the existing Windows Terminal window and splits panes for both scripts.
+- `UrlHelpers.psm1`, `NetworkHelpers.psm1`, `Dashboard.psm1`, `ProcessHelpers.psm1`, `LaunchHelpers.psm1`, `ConfigHelpers.psm1`
+	- Small focused helpers used across the scripts: URL prefix detection (local/external/generic),
+		port/process utilities (check listener, wait for port), HTML dashboard generation, and process helpers.
 
-```powershell
-cd C:\Users\rchan09\code\app_management\app_management
-.\start_manager_and_landing_page.ps1
-```
+Key behaviors and requirements
+-----------------------------
 
-Edge cases and troubleshooting:
-- ExecutionPolicy: If scripts are blocked, run PowerShell as Administrator and set a policy (e.g., `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser`) or use the wrapper which passes `-ExecutionPolicy Bypass`.
-- Paths: The one-liner uses absolute paths. If you move the repo, update the paths or run the wrapper from the folder so it resolves scripts relative to itself.
-- Windows Terminal: If `wt` isn't found, install Windows Terminal from the Microsoft Store or ensure `wt.exe` is on PATH.
- 
-Update (2025-09-23): The wrapper `start_manager_and_landing_page.ps1` now requests Windows Terminal to open the launched panes as a new tab in an existing Windows Terminal window (it passes `-w 0` to `wt`). This prevents spawning a separate WT window for each run and keeps the manager and index in the same terminal window as tabs/panes.
+- PowerShell 7+ is required. Scripts include `#Requires -Version 7.0`.
+- Windows Terminal (`wt.exe`) is the preferred frontend. When `wt` is not available the scripts
+	attempt to launch apps in separate PowerShell windows.
+- Apps.json
+	- `apps.json` (in the same folder) is the canonical source of app definitions. An example
+		is included as `apps_example.json`.
 
-To use the wrapper:
+How to run
+----------
 
-```powershell
-cd C:\Users\rchan09\code\app_management\app_management
-.\start_manager_and_landing_page.ps1
-```
+From the repo root or the `app_management` folder, run the manager and landing page.
 
-If you prefer the original behavior (always open a new WT window), edit `start_manager_and_landing_page.ps1` and remove the `-w 0` arguments from the `wt` invocation.
-
-## Modules layout
-
-- `app_management/app_management/Modules/AppHelpers.psm1` — app list utilities (dedupe, field accessors, venv/package helpers, repo/venv updates)
-- `app_management/app_management/Modules/TerminalHelpers.psm1` — Windows Terminal and window interaction helpers
-- `app_management/app_management/Modules/ProcessHelpers.psm1` — Process-oriented actions extracted from scripts: stop apps by port, close idle tabs, update apps (stop → update → restart via Enter).
-
-Notes:
-- Scripts import these modules using paths relative to their own location; global installation isn’t required.
-- PowerShell 7+ is required. The scripts include `#Requires -Version 7.0`.
-
-## Running tests
-
-A simple test script validates a few helpers. From the repo root:
+Run manager interactively:
 
 ```powershell
-pwsh -File .\app_management\app_management\tests\Test-AppHelpers.ps1
-pwsh -File .\app_management\app_management\tests\Test-TerminalHelpers.ps1
+pwsh -File .\app_management\app_manager.ps1
 ```
 
-What it covers:
-- `Normalize-AppsList` — filters unsupported types and de-duplicates by `Name`
-- `Get-PackageManager` — returns `uv` when `pyproject.toml` is present, otherwise `pip`
+Generate and host the landing page (default port 1111):
 
-Terminal helpers smoke test:
-- `Get-WindowsTerminalPath` shape and availability
-- `New-WindowsTerminalTab` basic non-throw behavior
+```powershell
+pwsh -File .\app_management\landing_page.ps1
+```
+
+Launch both in Windows Terminal (wrapper):
+
+```powershell
+cd .\app_management
+.\start.ps1
+```
+
+Or use wt directly (example):
+
+```powershell
+wt -w 0 new-tab pwsh -NoExit -NoProfile -ExecutionPolicy Bypass -File .\app_management\app_manager.ps1 ; split-pane -H pwsh -NoExit -NoProfile -ExecutionPolicy Bypass -File .\app_management\landing_page.ps1
+```
+
+Tests
+-----
+
+There are some lightweight PowerShell tests in `app_management/tests/`. From the repo root:
+
+```powershell
+pwsh -File .\app_management\tests\Test-AppHelpers.ps1
+pwsh -File .\app_management\tests\Test-TerminalHelpers.ps1
+```
