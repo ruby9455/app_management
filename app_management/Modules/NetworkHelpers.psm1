@@ -43,7 +43,41 @@ function Wait-ForPortToBeFree {
     return $false
 }
 
+function Test-PortInUse {
+    <#
+    .SYNOPSIS
+    Determines if a TCP port has an active listener (is in use).
+
+    .DESCRIPTION
+    Checks if the specified port has any active TCP connections listening on it.
+    Used for both port assignment validation and dashboard status indicators.
+
+    .PARAMETER Port
+    The TCP port number to check (1-65535).
+
+    .OUTPUTS
+    [bool] - $true if port is in use, $false if available.
+
+    .EXAMPLE
+    if (Test-PortInUse -Port 8501) { Write-Host "Port 8501 is in use" }
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateRange(1,65535)]
+        [int]$Port
+    )
+
+    try {
+        $pids = Get-ListeningPidsForPort -Port $Port
+        return @($pids).Count -gt 0
+    } catch {
+        return $false
+    }
+}
+
 Export-ModuleMember -Function @(
     'Get-ListeningPidsForPort',
-    'Wait-ForPortToBeFree'
+    'Wait-ForPortToBeFree',
+    'Test-PortInUse'
 )

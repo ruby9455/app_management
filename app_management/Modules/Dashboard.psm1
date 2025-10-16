@@ -135,15 +135,15 @@ function New-AppDashboardHtml {
 }
 
 Export-ModuleMember -Function New-AppDashboardHtml
-# Requires -Version 7.0
-# Dashboard.psm1 - shared HTML dashboard generator
-
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 try {
     if (-not (Get-Module -Name UrlHelpers -ListAvailable)) {
         Import-Module -Force (Join-Path (Split-Path $PSScriptRoot -Parent) 'Modules/UrlHelpers.psm1')
+    }
+    if (-not (Get-Module -Name NetworkHelpers -ListAvailable)) {
+        Import-Module -Force (Join-Path (Split-Path $PSScriptRoot -Parent) 'Modules/NetworkHelpers.psm1')
     }
 } catch { }
 
@@ -235,6 +235,22 @@ function New-AppDashboardHtml {
             display: inline-block;
             margin-bottom: 15px;
         }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+        .status-running {
+            background: #2ecc71;
+            box-shadow: 0 0 8px rgba(46, 204, 113, 0.6);
+        }
+        .status-stopped {
+            background: #e74c3c;
+            box-shadow: 0 0 8px rgba(231, 76, 60, 0.6);
+        }
         .url-section { margin-bottom: 15px; }
         .url-label { font-weight: 600; color: #555; margin-bottom: 5px; font-size: 0.9em; }
         .url-link {
@@ -277,6 +293,11 @@ function New-AppDashboardHtml {
         $appName = $app.Name
         $appType = $app.Type
 
+        # Check if port is in use
+        $portInUse = Test-PortInUse -Port $port
+        $statusClass = if ($portInUse) { "status-running" } else { "status-stopped" }
+        $statusText = if ($portInUse) { "Running" } else { "Stopped" }
+
         # Build URLs with special-case for Django network URL to use 127.0.0.1
         $localUrl = "http://localhost:$port$basePathStr"
         if ($appType -and $appType -ieq 'Django') {
@@ -289,7 +310,7 @@ function New-AppDashboardHtml {
 
         $html += @"
             <div class="app-card">
-                <div class="app-name">$appName</div>
+                <div class="app-name">$appName<span class="status-indicator $statusClass" title="$statusText"></span></div>
                 <div class="app-type">$appType</div>
                 <div class="url-section">
                     <div class="url-label">🏠 Local URL</div>

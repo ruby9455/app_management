@@ -30,6 +30,69 @@ function ConvertTo-SingleQuotedLiteral {
     return ($Text -replace "'", "''")
 }
 
+function Get-AppsFromInput {
+    <#
+    .SYNOPSIS
+    Parses comma-separated app input and returns matching app objects from a list.
+    
+    .DESCRIPTION
+    Handles comma-separated selection (flexible separators: ',', ', ', ' , ').
+    Special inputs: '0' or 'all' returns all apps.
+    Supports app indices (1-N), app names, or port numbers.
+    
+    .PARAMETER InputValue
+    The user input string (comma-separated indices/names/ports, or '0'/'all').
+    
+    .PARAMETER AppList
+    Array of app objects to select from.
+    
+    .OUTPUTS
+    Array of matching app objects.
+    #>
+    param(
+        [Parameter(Mandatory=$true)][string]$InputValue,
+        [Parameter(Mandatory=$true)][array]$AppList
+    )
+    
+    $resultApps = @()
+    
+    # Check if input is "all" or "0"
+    if ($InputValue -eq "0" -or $InputValue -ieq "all") {
+        return $AppList
+    }
+    
+    # Split by comma and handle various separator formats: ',', ', ', ' , '
+    $items = $InputValue -split '\s*,\s*' | Where-Object { $_ -ne "" }
+    
+    foreach ($item in $items) {
+        $item = $item.Trim()
+        if ($item -ne "") {
+            $app = $null
+            
+            # Try to match by index or port number
+            if ($item -match '^\d+$') {
+                $idx = [int]$item - 1
+                if ($idx -ge 0 -and $idx -lt $AppList.Count) {
+                    $app = $AppList[$idx]
+                } else {
+                    # If not a valid index, try to find by port number
+                    $portNum = [int]$item
+                    $app = $AppList | Where-Object { (Get-FieldValue -Object $_ -Name 'Port') -eq $portNum }
+                }
+            } else {
+                # Try to match by name (case-insensitive)
+                $app = $AppList | Where-Object { (Get-FieldValue -Object $_ -Name 'Name') -ieq $item }
+            }
+            
+            if ($null -ne $app) {
+                $resultApps += $app
+            }
+        }
+    }
+    
+    return $resultApps
+}
+
 function Get-ManagePyRelative {
     param([Parameter(Mandatory)] [string]$WorkingDir)
     if ($script:ManagePyCache.ContainsKey($WorkingDir)) { return $script:ManagePyCache[$WorkingDir] }
@@ -210,6 +273,7 @@ function Start-AppsList {
 
 Export-ModuleMember -Function @(
     'ConvertTo-SingleQuotedLiteral',
+    'Get-AppsFromInput',
     'Get-ManagePyRelative',
     'Get-PackageContext',
     'New-EncodedPwshCommand',

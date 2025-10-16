@@ -307,8 +307,8 @@ function Get-PortNumber {
     if ($portResponse -ieq "yes" -or $portResponse -ieq "y") {
         do {
             $port = Get-Random -Minimum 3000 -Maximum 9000
-            $portCheck = Test-NetConnection -ComputerName "localhost" -Port $port
-        } while ($portCheck.TcpTestSucceeded -eq $true)
+            $portInUse = Test-PortInUse -Port $port
+        } while ($portInUse -eq $true)
         return $port
     } else {
         do {
@@ -317,14 +317,14 @@ function Get-PortNumber {
                 Write-Host "Generating a random port number..."
                 do {
                     $port = Get-Random -Minimum 3000 -Maximum 9000
-                    $portCheck = Test-NetConnection -ComputerName "localhost" -Port $port
-                } while ($portCheck.TcpTestSucceeded -eq $true)
+                    $portInUse = Test-PortInUse -Port $port
+                } while ($portInUse -eq $true)
             } else {
                 $port = [int]$port
-                $portCheck = Test-NetConnection -ComputerName "localhost" -Port $port
-                if ($portCheck.TcpTestSucceeded -eq $true) { Write-Host "Port $port is already in use. Please enter a different port." }
+                $portInUse = Test-PortInUse -Port $port
+                if ($portInUse -eq $true) { Write-Host "Port $port is already in use. Please enter a different port." }
             }
-        } while ($portCheck.TcpTestSucceeded -eq $true)
+        } while ($portInUse -eq $true)
         return $port
     }
 }
