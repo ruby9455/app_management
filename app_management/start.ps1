@@ -37,15 +37,15 @@ function Find-ScriptPath {
   return $null
 }
 
-$script1 = Find-ScriptPath 'run_apps_tab_html.ps1'
-$script2 = Find-ScriptPath 'generate_landing_page.ps1'
+$script1 = Find-ScriptPath 'app_manager.ps1'
+$script2 = Find-ScriptPath 'landing_page.ps1'
 
 if (-not $script1) {
-  Write-Error "Cannot find 'run_apps_tab_html.ps1'. Checked: $PSScriptRoot, parent folders, and current directory."
+  Write-Error "Cannot find 'app_manager.ps1'. Checked: $PSScriptRoot, parent folders, and current directory."
   exit 1
 }
 if (-not $script2) {
-  Write-Error "Cannot find 'generate_landing_page.ps1'. Checked: $PSScriptRoot, parent folders, and current directory."
+  Write-Error "Cannot find 'landing_page.ps1'. Checked: $PSScriptRoot, parent folders, and current directory."
   exit 1
 }
 
