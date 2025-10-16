@@ -1,10 +1,11 @@
 <#
 .SYNOPSIS
-Generate an HTML index page with all app URLs and start a web server on port 1111.
+Host an HTML dashboard for all app URLs on port 1111.
 
 .DESCRIPTION
-This script reads apps from apps.json, generates an HTML page with all app URLs,
-and starts a simple HTTP server on port 1111 to host the index page.
+This script hosts a dashboard page for all app URLs. It checks if app_index.html exists,
+and if not, generates it using Dashboard.psm1. The page is served via HTTP on port 1111.
+The refresh button on the page or browser refresh regenerates the HTML with the latest data.
 
 .PARAMETER Port
 The port to host the web server on. Default is 1111.
@@ -13,10 +14,10 @@ The port to host the web server on. Default is 1111.
 The host address to bind to. Default is localhost.
 
 .EXAMPLE
-./generate_app_index.ps1
+./generate_landing_page.ps1
 
 .EXAMPLE
-./generate_app_index.ps1 -Port 8080 -HostAddress "0.0.0.0"
+./generate_landing_page.ps1 -Port 8080 -HostAddress "0.0.0.0"
 #>
 
 [CmdletBinding()]
@@ -31,53 +32,78 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# Import Url helpers module
-try {
-    $modulesRoot = Join-Path $PSScriptRoot 'Modules'
-    Import-Module -Force -ErrorAction Stop (Join-Path $modulesRoot 'UrlHelpers.psm1')
-} catch { throw "Failed to import UrlHelpers module from '$modulesRoot'. Error: $($_.Exception.Message)" }
-
-# Load apps.json
-$jsonFilePath = "$PSScriptRoot\apps.json"
-Write-Host "Reading apps from: $jsonFilePath"
-
-if (-not (Test-Path $jsonFilePath)) {
-    throw "apps.json not found at $jsonFilePath"
-}
-
-$apps = Get-Content $jsonFilePath | ConvertFrom-Json
-
-if (-not $apps -or (@($apps).Count -eq 0)) {
-    Write-Host "No apps with ports found in apps.json."
-    return
-}
-
-# Detect URL prefixes
-$networkUrlPrefix = UrlHelpers\Get-NetworkUrlPrefix
-$externalUrlPrefix = UrlHelpers\Get-ExternalUrlPrefix
-$genericUrlPrefix  = UrlHelpers\Get-GenericUrlPrefix
-
-Write-Host "Detected Network URL prefix: $networkUrlPrefix"
-Write-Host "Detected External URL prefix: $externalUrlPrefix"
-Write-Host "Detected Generic URL prefix: $genericUrlPrefix"
-
-# Import Dashboard module
+# Import Dashboard module (single source of truth for HTML generation)
 try {
     $modulesRoot = Join-Path $PSScriptRoot 'Modules'
     Import-Module -Force -ErrorAction Stop (Join-Path $modulesRoot 'Dashboard.psm1')
 } catch { throw "Failed to import Dashboard module from '$modulesRoot'. Error: $($_.Exception.Message)" }
 
-# Generate HTML content using shared module
-Write-Host "Generating HTML index page..."
-$htmlContent = Dashboard\New-AppDashboardHtml -Apps $apps -NetworkUrlPrefix $networkUrlPrefix -ExternalUrlPrefix $externalUrlPrefix -GenericUrlPrefix $genericUrlPrefix
-
-# Save HTML file
+# Path to HTML file
 $htmlFilePath = "$PSScriptRoot\app_index.html"
-$htmlContent | Out-File -FilePath $htmlFilePath -Encoding UTF8
-Write-Host "HTML index page saved to: $htmlFilePath"
 
-# Start HTTP server (with automatic fallback if the default port is taken or reserved)
-Write-Host "Starting HTTP server..."
+# Function to generate HTML using Dashboard module
+function Get-DashboardHtml {
+    # Import Url helpers module for URL prefix detection
+    try {
+        $modulesRoot = Join-Path $PSScriptRoot 'Modules'
+        if (-not (Get-Module -Name UrlHelpers -ErrorAction SilentlyContinue)) {
+            Import-Module -Force -ErrorAction Stop (Join-Path $modulesRoot 'UrlHelpers.psm1')
+        }
+    } catch { Write-Warning "Could not import UrlHelpers module. URL prefixes will use defaults." }
+
+    # Load apps.json
+    $jsonFilePath = "$PSScriptRoot\apps.json"
+    
+    if (-not (Test-Path $jsonFilePath)) {
+        throw "apps.json not found at $jsonFilePath"
+    }
+
+    $apps = Get-Content $jsonFilePath | ConvertFrom-Json
+
+    if (-not $apps -or (@($apps).Count -eq 0)) {
+        return "<html><body><p>No apps found in apps.json.</p></body></html>"
+    }
+
+    # Detect URL prefixes (with fallbacks if module not available)
+    $networkUrlPrefix = if (Get-Command -Name Get-NetworkUrlPrefix -ErrorAction SilentlyContinue) { 
+        Get-NetworkUrlPrefix 
+    } else { 
+        "http://localhost" 
+    }
+    
+    $externalUrlPrefix = if (Get-Command -Name Get-ExternalUrlPrefix -ErrorAction SilentlyContinue) { 
+        Get-ExternalUrlPrefix 
+    } else { 
+        "http://localhost" 
+    }
+    
+    $genericUrlPrefix = if (Get-Command -Name Get-GenericUrlPrefix -ErrorAction SilentlyContinue) { 
+        Get-GenericUrlPrefix 
+    } else { 
+        "http://localhost" 
+    }
+
+    # Generate HTML using Dashboard module
+    $htmlContent = Dashboard\New-AppDashboardHtml -Apps $apps `
+        -NetworkUrlPrefix $networkUrlPrefix `
+        -ExternalUrlPrefix $externalUrlPrefix `
+        -GenericUrlPrefix $genericUrlPrefix
+
+    return $htmlContent
+}
+
+# Check if HTML file exists, if not generate it
+if (Test-Path $htmlFilePath) {
+    Write-Host "HTML dashboard found at: $htmlFilePath"
+} else {
+    Write-Host "Generating HTML dashboard..."
+    $htmlContent = Get-DashboardHtml
+    $htmlContent | Out-File -FilePath $htmlFilePath -Encoding UTF8
+    Write-Host "HTML dashboard generated and saved to: $htmlFilePath"
+}
+
+# Start HTTP server
+Write-Host "Starting HTTP server on http://$HostAddress`:$Port/"
 Write-Host "Press Ctrl+C to stop the server"
 
 # Simple HTTP server using .NET HttpListener
@@ -130,7 +156,13 @@ try {
         Write-Host "$(Get-Date -Format 'HH:mm:ss') - $($request.HttpMethod) $($request.Url.PathAndQuery)"
         
         if ($request.Url.PathAndQuery -eq "/" -or $request.Url.PathAndQuery -eq "/index.html") {
-            # Serve the HTML file
+            # Generate fresh HTML on each request (enables refresh functionality)
+            $htmlContent = Get-DashboardHtml
+            
+            # Also save it to file for reference
+            $htmlContent | Out-File -FilePath $htmlFilePath -Encoding UTF8 -Force
+            
+            # Serve the HTML
             $response.ContentType = "text/html; charset=utf-8"
             $response.StatusCode = 200
             
