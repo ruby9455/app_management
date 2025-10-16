@@ -23,17 +23,26 @@ function New-AppDashboardHtml {
     # Ensure we have apps array
     if (-not $Apps) { return "<html><body><p>No apps provided.</p></body></html>" }
     
-    # Filter to apps with ports - make filtering more robust
-    $appsWithPorts = @($Apps | Where-Object { 
+    # Filter to apps with a valid port (not null, not empty, integer, > 0)
+    $appsWithPorts = @($Apps | Where-Object {
         if ($_ -eq $null) { return $false }
+        $port = $null
         if ($_ -is [System.Management.Automation.PSCustomObject] -or $_ -is [hashtable]) {
-            $port = $_.Port
-            return $port -and ([int]$port) -gt 0
+            if ($_.PSObject.Properties.Name -contains 'Port') {
+                $port = $_.Port
+            } elseif ($_.ContainsKey('Port')) {
+                $port = $_['Port']
+            }
         }
-        return $false
+        if ($null -eq $port) { return $false }
+        if ([string]::IsNullOrWhiteSpace([string]$port)) { return $false }
+        try {
+            $portInt = [int]$port
+        } catch { return $false }
+        return $portInt -gt 0
     })
     
-    if ($appsWithPorts.Count -eq 0) { return "<html><body><p>No apps with ports.</p></body></html>" }
+    if ($appsWithPorts.Count -eq 0) { return "<html><body><p>No apps with valid ports.</p></body></html>" }
 
     if ([string]::IsNullOrWhiteSpace($NetworkUrlPrefix)) { 
         if (Get-Command -Name Get-NetworkUrlPrefix -ErrorAction SilentlyContinue) {
