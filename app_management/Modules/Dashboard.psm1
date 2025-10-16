@@ -160,6 +160,12 @@ function New-AppDashboardHtml {
         }
         .url-link:hover { background: #f0f8ff; border-color: #4facfe; }
         .url-link:active { background: #e3f2fd; }
+        .url-container { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+        .url-link { flex: 1; }
+        .copy-btn { background: #667eea; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em; transition: background 0.2s; white-space: nowrap; }
+        .copy-btn:hover { background: #5568d3; }
+        .copy-btn:active { background: #4454b8; }
+        .copy-btn.copied { background: #2ecc71; }
         .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; border-top: 1px solid #eee; }
         .refresh-btn { background: #4facfe; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 1em; margin-bottom: 20px; }
         .refresh-btn:hover { background: #3d8bfe; }
@@ -167,6 +173,25 @@ function New-AppDashboardHtml {
     <script>
         // Simple ping check to style links if targets are alive (optional enhancement)
         async function ping(url, anchor){ try{ const c = new AbortController(); const t = setTimeout(()=>c.abort(), 1500); const r = await fetch(url, {mode:'no-cors', signal:c.signal}); anchor.classList.add('up'); clearTimeout(t);} catch(e){ anchor.classList.add('down'); } }
+        
+        // Copy URL to clipboard functionality
+        function copyToClipboard(url, button) {
+            navigator.clipboard.writeText(url).then(() => {
+                const originalText = button.textContent;
+                button.textContent = '✓ Copied!';
+                button.classList.add('copied');
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                button.textContent = '✗ Failed';
+                setTimeout(() => {
+                    button.textContent = '📋 Copy';
+                }, 2000);
+            });
+        }
     </script>
     <style>.url-link.up{border-color:#2ecc71;background:#ecf9f1}.url-link.down{border-color:#e74c3c;background:#fdecea}</style>
 </head>
@@ -210,19 +235,31 @@ function New-AppDashboardHtml {
                 <div class="app-type">$appType</div>
                 <div class="url-section">
                     <div class="url-label">🏠 Local URL</div>
-                    <a href="$localUrl" target="_blank" class="url-link">$localUrl</a>
+                    <div class="url-container">
+                        <a href="$localUrl" target="_blank" class="url-link">$localUrl</a>
+                        <button class="copy-btn" onclick="copyToClipboard('$localUrl', this)" title="Copy to clipboard">📋 Copy</button>
+                    </div>
                 </div>
                 <div class="url-section">
                     <div class="url-label">🌐 Network URL</div>
-                    <a href="$networkUrl" target="_blank" class="url-link">$networkUrl</a>
+                    <div class="url-container">
+                        <a href="$networkUrl" target="_blank" class="url-link">$networkUrl</a>
+                        <button class="copy-btn" onclick="copyToClipboard('$networkUrl', this)" title="Copy to clipboard">📋 Copy</button>
+                    </div>
                 </div>
                 <div class="url-section">
                     <div class="url-label">🔗 Generic URL</div>
-                    <a href="$genericUrl" target="_blank" class="url-link">$genericUrl</a>
+                    <div class="url-container">
+                        <a href="$genericUrl" target="_blank" class="url-link">$genericUrl</a>
+                        <button class="copy-btn" onclick="copyToClipboard('$genericUrl', this)" title="Copy to clipboard">📋 Copy</button>
+                    </div>
                 </div>
                 <div class="url-section">
                     <div class="url-label">🌍 External URL</div>
-                    <a href="$externalUrl" target="_blank" class="url-link">$externalUrl</a>
+                    <div class="url-container">
+                        <a href="$externalUrl" target="_blank" class="url-link">$externalUrl</a>
+                        <button class="copy-btn" onclick="copyToClipboard('$externalUrl', this)" title="Copy to clipboard">📋 Copy</button>
+                    </div>
                 </div>
             </div>
 "@
