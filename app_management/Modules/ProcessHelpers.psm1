@@ -26,7 +26,8 @@ try {
 function Stop-AppByConfig {
     param(
         [Parameter(Mandatory = $true)]
-        [psobject]$App
+        [psobject]$App,
+        [switch]$DryRun
     )
     $name = Get-FieldValue -Object $App -Name 'Name'
     if (-not (Test-FieldHasValue -Object $App -Name 'Port')) {
@@ -50,6 +51,9 @@ function Stop-AppByConfig {
             Write-Warning "Failed to stop PID ${processId}: $($_.Exception.Message)"
         }
     }
+    # Close the corresponding terminal tab
+    Write-Host "Closing terminal tab for '$name'..."
+    Stop-AppTabByTitle -Title $name -DryRun:$DryRun
 }
 
 function Get-CurrentAppsList {
