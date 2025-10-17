@@ -8,7 +8,7 @@ relative to the scripts (no global module installation required).
 Top-level scripts
 -----------------
 
-- `app_manager.ps1` (primary manager)
+- `manager.ps1` (primary manager)
 	- Interactive app manager: list/start/stop/restart/update apps declared in `apps.json`.
 	- Launches apps in Windows Terminal tabs (preferred) or falls back to new PowerShell windows.
 	- Detects package manager (`uv` when `pyproject.toml` exists, otherwise `pip`), finds venvs,
@@ -56,7 +56,7 @@ From the repo root or the `app_management` folder, run the manager and landing p
 Run manager interactively:
 
 ```powershell
-pwsh -File .\app_management\app_manager.ps1
+pwsh -File .\app_management\manager.ps1
 ```
 
 Generate and host the landing page (default port 1111):
@@ -75,7 +75,7 @@ cd .\app_management
 Or use wt directly (example):
 
 ```powershell
-wt -w 0 new-tab pwsh -NoExit -NoProfile -ExecutionPolicy Bypass -File .\app_management\app_manager.ps1 ; split-pane -H pwsh -NoExit -NoProfile -ExecutionPolicy Bypass -File .\app_management\landing_page.ps1
+wt -w 0 new-tab pwsh -NoExit -NoProfile -ExecutionPolicy Bypass -File .\app_management\manager.ps1 ; split-pane -H pwsh -NoExit -NoProfile -ExecutionPolicy Bypass -File .\app_management\landing_page.ps1
 ```
 
 Tests
