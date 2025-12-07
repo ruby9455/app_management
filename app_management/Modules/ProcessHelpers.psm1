@@ -61,9 +61,11 @@ function Stop-AppByConfig {
 
 function Get-CurrentAppsList {
     # Prefer in-memory edits if available; relies on $global:apps populated by caller script
+    # Use explicit property expression with case-insensitive ToUpper() to ensure consistent
+    # sorting across PowerShell Core (pwsh 7+) and Windows PowerShell 5.1
     $inMem = @($global:apps)
-    if ($inMem.Count -gt 0) { return (Select-UniqueAppsByName -Apps $inMem | Sort-Object Name) }
-    return (Select-UniqueAppsByName -Apps @($apps) | Sort-Object Name)
+    if ($inMem.Count -gt 0) { return (Select-UniqueAppsByName -Apps $inMem | Sort-Object { $_.Name.ToUpper() }) }
+    return (Select-UniqueAppsByName -Apps @($apps) | Sort-Object { $_.Name.ToUpper() })
 }
 
 function Close-AllIdleAppTabs {
