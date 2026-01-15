@@ -45,10 +45,15 @@ function Get-AppsFromJson {
 function Initialize-EditableApps {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)][AllowEmptyCollection()][array]$Apps
+        [Parameter(Mandatory=$false)][AllowNull()][AllowEmptyCollection()][array]$Apps
     )
+    if ($null -eq $Apps) { $Apps = @() }
     $editable = @()
     foreach ($a in $Apps) { $editable += (ConvertTo-Hashtable -Object $a) }
+    if ($editable.Count -eq 0) {
+        $global:apps = @()
+        return ,@()
+    }
     $editable = Select-UniqueAppsByName -Apps $editable
     $global:apps = $editable
     return $editable

@@ -63,9 +63,13 @@ function Get-CurrentAppsList {
     # Prefer in-memory edits if available; relies on $global:apps populated by caller script
     # Use explicit property expression with case-insensitive ToUpper() to ensure consistent
     # sorting across PowerShell Core (pwsh 7+) and Windows PowerShell 5.1
-    $inMem = @($global:apps)
-    if ($inMem.Count -gt 0) { return (Select-UniqueAppsByName -Apps $inMem | Sort-Object { $_.Name.ToUpper() }) }
-    return (Select-UniqueAppsByName -Apps @($apps) | Sort-Object { $_.Name.ToUpper() })
+    # Note: Use Write-Output with -NoEnumerate or ,@() to preserve empty array (PowerShell unrolls @() to $null)
+    if ($null -eq $global:apps) { return ,@() }
+    [array]$inMem = @($global:apps)
+    if ($inMem.Count -eq 0) { return ,@() }
+    $unique = Select-UniqueAppsByName -Apps $inMem
+    if ($null -eq $unique -or $unique.Count -eq 0) { return ,@() }
+    return @($unique | Sort-Object { $_.Name.ToUpper() })
 }
 
 function Close-AllIdleAppTabs {
