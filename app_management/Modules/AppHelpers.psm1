@@ -5,10 +5,13 @@
 # Dedupe by name (case-insensitive)
 function Select-UniqueAppsByName {
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory=$false)]
+        [AllowNull()]
         [AllowEmptyCollection()]
         [array]$Apps
     )
+    # Note: Use ,@() to preserve empty array on return (PowerShell unrolls @() to $null)
+    if ($null -eq $Apps -or $Apps.Count -eq 0) { return ,@() }
     return @($Apps | Group-Object { $_.Name.ToString().ToLowerInvariant() } | ForEach-Object { $_.Group | Select-Object -First 1 })
 }
 
@@ -69,8 +72,11 @@ function ConvertTo-NormalizedAppsList {
         if ($Apps -is [array]) { $arr = $Apps } else { $arr = @($Apps) }
     }
     $supported = @('Streamlit','Django','Dash','Flask')
-    $filtered = $arr | Where-Object { $_ -and $_.Type -and ($supported -contains $_.Type) }
-    return (Select-UniqueAppsByName -Apps @($filtered))
+    $filtered = @($arr | Where-Object { $_ -and $_.Type -and ($supported -contains $_.Type) })
+    if ($null -eq $filtered -or $filtered.Count -eq 0) {
+        return ,@()
+    }
+    return (Select-UniqueAppsByName -Apps $filtered)
 }
 
 function ConvertTo-Hashtable {

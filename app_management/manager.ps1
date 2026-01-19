@@ -170,6 +170,10 @@ function Update-App {
 function Show-AppsTab {
     Write-Host "===== All available apps ====="
     $sorted = Get-CurrentAppsList
+    if ($sorted.Count -eq 0) {
+        Write-Host "(No apps configured yet. Use option 5 to add an app.)"
+        return @()
+    }
     for ($i = 0; $i -lt $sorted.Count; $i++) {
         $name = Get-FieldValue -Object $sorted[$i] -Name 'Name'
         $port = Get-FieldValue -Object $sorted[$i] -Name 'Port'
@@ -247,6 +251,7 @@ function Show-MainMenu {
         switch ($option) {
             1 {
                 $list = Show-AppsTab
+                if ($null -eq $list -or $list.Length -eq 0) { continue }
                 Write-Host "===================="
                 $input = Read-Host "Enter app name(s)/index(es)/port(s) to start (comma-separated), 0 for all, or 'back'"
                 if ($input -ieq 'back') { continue }
@@ -258,6 +263,7 @@ function Show-MainMenu {
             }
             2 {
                 $list = Show-AppsTab
+                if ($null -eq $list -or $list.Length -eq 0) { continue }
                 Write-Host "===================="
                 $input = Read-Host "Enter app name(s)/index(es)/port(s) to stop (comma-separated), 0 for all, or 'back'"
                 if ($input -ieq 'back') { continue }
@@ -269,6 +275,7 @@ function Show-MainMenu {
             }
             3 {
                 $list = Show-AppsTab
+                if ($null -eq $list -or $list.Length -eq 0) { continue }
                 Write-Host "===================="
                 $input = Read-Host "Enter app name(s)/index(es)/port(s) to restart (comma-separated), 0 for all, or 'back'"
                 if ($input -ieq 'back') { continue }
@@ -289,6 +296,7 @@ function Show-MainMenu {
             }
             4 {
                 $list = Show-AppsTab
+                if ($null -eq $list -or $list.Length -eq 0) { continue }
                 Write-Host "===================="
                 $input = Read-Host "Enter app name(s)/index(es)/port(s) to update (comma-separated), 0 for all, or 'back'"
                 if ($input -ieq 'back') { continue }
@@ -357,6 +365,9 @@ function Show-MainMenu {
             6 {
                 # Combined Update/Remove app
                 $list = Show-AppsTab
+                if ($null -eq $list -or $list.Length -eq 0) {
+                    continue
+                }
                 Write-Host "===================="
                 $sel = Read-Host "Enter app name or index (or 'back' to cancel)"
                 if ($sel -ieq 'back') { continue }
