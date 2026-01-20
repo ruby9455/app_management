@@ -1,0 +1,102 @@
+[
+  {
+    "Type": "Streamlit",
+    "Port": 3094,
+    "AppPath": "/home/user/code/adm_dsc",
+    "IndexPath": "app/ADM_and_DSC.py",
+    "Name": "ADM_DSC",
+    "VenvPath": "/home/user/code/adm_dsc/venv"
+  },
+  {
+    "Port": 3093,
+    "Type": "Django",
+    "Name": "ADM_DSC Django",
+    "AppPath": "/home/user/code/adm_dsc"
+  },
+  {
+    "CustomCommand": "continuous_cache_update",
+    "Type": "Django",
+    "Name": "ADM_DSC Cache Update",
+    "AppPath": "/home/user/code/adm_dsc"
+  },
+  {
+    "Type": "Streamlit",
+    "Port": 1117,
+    "AppPath": "/home/user/code/care_progression",
+    "IndexPath": "app/run.py",
+    "Name": "Care Progression",
+    "VenvPath": "/home/user/code/care_progression/venv"
+  },
+  {
+    "Type": "Streamlit",
+    "Port": 1120,
+    "AppPath": "/home/user/code/care_progression_admin",
+    "IndexPath": "app/run.py",
+    "Name": "Care Progression Admin",
+    "VenvPath": "/home/user/code/care_progression_admin/venv"
+  },
+  {
+    "Type": "Streamlit",
+    "Port": 5267,
+    "AppPath": "/home/user/code/rehab/driving_assessment",
+    "IndexPath": "app/main.py",
+    "Name": "Driving Assessment",
+    "VenvPath": "/home/user/code/rehab/driving_assessment/.venv"
+  },
+  {
+    "Port": 4080,
+    "Type": "Streamlit",
+    "AppPath": "/home/user/code/rehab/long_covid",
+    "IndexPath": "app/longcovid.py",
+    "Name": "Long COVID",
+    "PackageManager": "uv",
+    "VenvPath": "/home/user/code/rehab/long_covid/.venv"
+  },
+  {
+    "Type": "Streamlit",
+    "Port": 3844,
+    "AppPath": "/home/user/code/nd_shift_report",
+    "IndexPath": "app/form.py",
+    "Name": "ND Shift Report",
+    "PackageManager": "uv",
+    "VenvPath": "/home/user/code/nd_shift_report/.venv"
+  },
+  {
+    "Port": 2602,
+    "AppPath": "/home/user/code/oil_django",
+    "Name": "Oil",
+    "VenvPath": "/home/user/code/oil_django/.venv",
+    "Type": "Django"
+  },
+  {
+    "Type": "Dash",
+    "Port": 4171,
+    "AppPath": "/home/user/code/work/sahml",
+    "IndexPath": "src/sahml/corporate/flow/flow_viz/dash/grouped_dash.py",
+    "Name": "Patient Flow Dash",
+    "VenvPath": "/home/user/venvs/sahml"
+  },
+  {
+    "Port": 2210,
+    "AppPath": "/home/user/code/sah_bed/sah_bed",
+    "Name": "SAH Bed",
+    "VenvPath": "/home/user/code/sah_bed/venv",
+    "Type": "Django"
+  },
+  {
+    "Type": "Streamlit",
+    "Port": 7553,
+    "AppPath": "/home/user/code/sah_bed_visibility",
+    "IndexPath": "app/main.py",
+    "Name": "SAH Bed Visibility",
+    "VenvPath": "/home/user/code/sah_bed_visibility/.venv"
+  },
+  {
+    "Type": "Flask",
+    "Port": 5000,
+    "AppPath": "/home/user/code/flask_app",
+    "IndexPath": "app.py",
+    "Name": "Flask Example",
+    "VenvPath": "/home/user/code/flask_app/.venv"
+  }
+]
