@@ -1,0 +1,34 @@
+[
+    {
+        "Name": "Example Streamlit App",
+        "Type": "Streamlit",
+        "Port": 8501,
+        "AppPath": "/home/user/projects/streamlit_app",
+        "IndexPath": "app.py",
+        "PackageManager": "uv"
+    },
+    {
+        "Name": "Example Django App",
+        "Type": "Django",
+        "Port": 8000,
+        "AppPath": "/home/user/projects/django_app",
+        "PackageManager": "pip",
+        "VenvPath": "/home/user/projects/django_app/.venv"
+    },
+    {
+        "Name": "Example Flask App",
+        "Type": "Flask",
+        "Port": 5000,
+        "AppPath": "/home/user/projects/flask_app",
+        "IndexPath": "app.py",
+        "PackageManager": "pip"
+    },
+    {
+        "Name": "Example Dash App",
+        "Type": "Dash",
+        "Port": 8050,
+        "AppPath": "/home/user/projects/dash_app",
+        "IndexPath": "app.py",
+        "PackageManager": "uv"
+    }
+]
