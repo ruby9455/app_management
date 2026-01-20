@@ -27,6 +27,7 @@ source "$SCRIPT_DIR/lib/config.sh"
 source "$SCRIPT_DIR/lib/url_helpers.sh"
 source "$SCRIPT_DIR/lib/app_helpers.sh"
 source "$SCRIPT_DIR/lib/terminal_helpers.sh"
+source "$SCRIPT_DIR/lib/json_helpers.sh"
 
 # Command line arguments
 APP_NAME=""
@@ -287,6 +288,228 @@ start_selected_apps() {
     done
 }
 
+# Add a new app interactively
+add_new_app() {
+    local json_file="$SCRIPT_DIR/apps.json"
+    
+    print_header "Add New App"
+    
+    # Get app path
+    read -r -p "Enter app path (absolute path): " app_path
+    if [[ -z "$app_path" || "$app_path" == "back" ]]; then
+        echo "Cancelled."
+        return
+    fi
+    
+    # Expand ~ if used
+    app_path="${app_path/#\~/$HOME}"
+    
+    if [[ ! -d "$app_path" ]]; then
+        echo -e "${RED}Error: Directory does not exist: $app_path${NC}"
+        return 1
+    fi
+    
+    app_path=$(realpath "$app_path")
+    
+    # Get app name (default to directory name)
+    local default_name=$(basename "$app_path")
+    read -r -p "Enter app name [$default_name]: " app_name
+    app_name="${app_name:-$default_name}"
+    
+    # Check for duplicate
+    if app_name_exists "$json_file" "$app_name"; then
+        echo -e "${RED}Error: An app named '$app_name' already exists${NC}"
+        return 1
+    fi
+    
+    # Detect app type
+    local detected_type=$(detect_app_type "$app_path")
+    echo -e "${CYAN}Detected type: $detected_type${NC}"
+    
+    local app_type
+    if [[ "$detected_type" == "Unknown" ]]; then
+        echo "Select app type:"
+        echo "  1) Streamlit"
+        echo "  2) Django"
+        echo "  3) Flask"
+        echo "  4) Dash"
+        read -r -p "Enter choice [1-4]: " type_choice
+        case "$type_choice" in
+            1) app_type="Streamlit" ;;
+            2) app_type="Django" ;;
+            3) app_type="Flask" ;;
+            4) app_type="Dash" ;;
+            *) app_type="Streamlit" ;;
+        esac
+    else
+        read -r -p "Use detected type '$detected_type'? [Y/n]: " use_detected
+        if [[ -z "$use_detected" || "${use_detected,,}" =~ ^(y|yes)$ ]]; then
+            app_type="$detected_type"
+        else
+            echo "Select app type:"
+            echo "  1) Streamlit"
+            echo "  2) Django"
+            echo "  3) Flask"
+            echo "  4) Dash"
+            read -r -p "Enter choice [1-4]: " type_choice
+            case "$type_choice" in
+                1) app_type="Streamlit" ;;
+                2) app_type="Django" ;;
+                3) app_type="Flask" ;;
+                4) app_type="Dash" ;;
+                *) app_type="$detected_type" ;;
+            esac
+        fi
+    fi
+    
+    # Get package manager
+    local pkg_manager=$(detect_package_manager "$app_path")
+    echo -e "${CYAN}Detected package manager: $pkg_manager${NC}"
+    
+    # Find venv
+    local venv_path=$(find_venv "$app_path" 2>/dev/null || echo "")
+    if [[ -n "$venv_path" ]]; then
+        echo -e "${CYAN}Found venv: $venv_path${NC}"
+    fi
+    
+    # Get index path for web apps
+    local index_path=""
+    if [[ "$app_type" == "Streamlit" || "$app_type" == "Flask" || "$app_type" == "Dash" ]]; then
+        echo -e "${CYAN}Select the main/index Python file:${NC}"
+        index_path=$(select_index_file "$app_path")
+        if [[ -z "$index_path" ]]; then
+            read -r -p "Enter index file path (relative to app): " index_path
+        fi
+    fi
+    
+    # Get port
+    local port=$(get_port_number)
+    
+    # Build and save the app
+    local new_app=$(build_app_json "$app_name" "$app_type" "$port" "$app_path" "$index_path" "$venv_path" "$pkg_manager")
+    
+    echo ""
+    echo -e "${CYAN}New app configuration:${NC}"
+    echo "$new_app" | jq .
+    echo ""
+    
+    read -r -p "Save this app? [Y/n]: " confirm
+    if [[ -z "$confirm" || "${confirm,,}" =~ ^(y|yes)$ ]]; then
+        add_app_to_json "$json_file" "$new_app"
+        echo -e "${GREEN}App '$app_name' added successfully!${NC}"
+    else
+        echo "Cancelled."
+    fi
+}
+
+# Edit an existing app
+edit_app() {
+    local target="$1"
+    local json_file="$SCRIPT_DIR/apps.json"
+    
+    if [[ ! "$target" =~ ^[0-9]+$ ]]; then
+        echo -e "${YELLOW}Usage: e <number>${NC}"
+        return
+    fi
+    
+    local index=$((target - 1))
+    local app_json=$(echo "$APPS_JSON" | jq ".[$index] // empty")
+    
+    if [[ -z "$app_json" || "$app_json" == "null" ]]; then
+        echo -e "${RED}Invalid index: $target${NC}"
+        return
+    fi
+    
+    local app_name=$(echo "$app_json" | jq -r '.Name')
+    print_header "Edit App: $app_name"
+    
+    echo "Current configuration:"
+    echo "$app_json" | jq .
+    echo ""
+    
+    # Edit each field
+    local current_name=$(echo "$app_json" | jq -r '.Name')
+    read -r -p "Name [$current_name]: " new_name
+    new_name="${new_name:-$current_name}"
+    
+    local current_type=$(echo "$app_json" | jq -r '.Type')
+    read -r -p "Type [$current_type]: " new_type
+    new_type="${new_type:-$current_type}"
+    
+    local current_port=$(echo "$app_json" | jq -r '.Port')
+    read -r -p "Port [$current_port]: " new_port
+    new_port="${new_port:-$current_port}"
+    
+    local current_app_path=$(echo "$app_json" | jq -r '.AppPath')
+    read -r -p "AppPath [$current_app_path]: " new_app_path
+    new_app_path="${new_app_path:-$current_app_path}"
+    
+    local current_index=$(echo "$app_json" | jq -r '.IndexPath // ""')
+    if [[ "$new_type" == "Streamlit" || "$new_type" == "Flask" || "$new_type" == "Dash" ]]; then
+        read -r -p "IndexPath [$current_index]: " new_index
+        new_index="${new_index:-$current_index}"
+    else
+        new_index=""
+    fi
+    
+    local current_venv=$(echo "$app_json" | jq -r '.VenvPath // ""')
+    read -r -p "VenvPath [$current_venv]: " new_venv
+    new_venv="${new_venv:-$current_venv}"
+    
+    local current_pm=$(echo "$app_json" | jq -r '.PackageManager // ""')
+    read -r -p "PackageManager [$current_pm]: " new_pm
+    new_pm="${new_pm:-$current_pm}"
+    
+    # Build updated app
+    local updated_app=$(build_app_json "$new_name" "$new_type" "$new_port" "$new_app_path" "$new_index" "$new_venv" "$new_pm")
+    
+    echo ""
+    echo -e "${CYAN}Updated configuration:${NC}"
+    echo "$updated_app" | jq .
+    echo ""
+    
+    read -r -p "Save changes? [Y/n]: " confirm
+    if [[ -z "$confirm" || "${confirm,,}" =~ ^(y|yes)$ ]]; then
+        update_app_in_json "$json_file" "$current_name" "$updated_app"
+        echo -e "${GREEN}App '$new_name' updated successfully!${NC}"
+    else
+        echo "Cancelled."
+    fi
+}
+
+# Delete an app
+delete_app() {
+    local target="$1"
+    local json_file="$SCRIPT_DIR/apps.json"
+    
+    if [[ ! "$target" =~ ^[0-9]+$ ]]; then
+        echo -e "${YELLOW}Usage: d <number>${NC}"
+        return
+    fi
+    
+    local index=$((target - 1))
+    local app_json=$(echo "$APPS_JSON" | jq ".[$index] // empty")
+    
+    if [[ -z "$app_json" || "$app_json" == "null" ]]; then
+        echo -e "${RED}Invalid index: $target${NC}"
+        return
+    fi
+    
+    local app_name=$(echo "$app_json" | jq -r '.Name')
+    
+    echo -e "${YELLOW}About to delete app: $app_name${NC}"
+    echo "$app_json" | jq .
+    echo ""
+    
+    read -r -p "Are you sure you want to delete this app? [y/N]: " confirm
+    if [[ "${confirm,,}" =~ ^(y|yes)$ ]]; then
+        remove_app_from_json "$json_file" "$app_name"
+        echo -e "${GREEN}App '$app_name' deleted successfully!${NC}"
+    else
+        echo "Cancelled."
+    fi
+}
+
 # Stop an app by port
 stop_app() {
     local app_json="$1"
@@ -319,10 +542,13 @@ interactive_menu() {
         
         echo ""
         echo -e "${CYAN}Commands:${NC}"
-        echo "  [number(s)] - Start app(s) by index (e.g., 1,2,3 or 1-3)"
+        echo "  [number(s)] - Start app(s) by index (e.g., 1,2,3)"
         echo "  [name]      - Start app by name"
         echo "  0 or all    - Start all apps"
         echo "  s [num]     - Stop app by index"
+        echo "  a           - Add a new app"
+        echo "  e [num]     - Edit app by index"
+        echo "  d [num]     - Delete app by index"
         echo "  r           - Refresh list"
         echo "  q           - Quit"
         echo ""
@@ -337,6 +563,22 @@ interactive_menu() {
             r|refresh)
                 load_apps_json
                 continue
+                ;;
+            a|add)
+                add_new_app
+                load_apps_json
+                ;;
+            e\ *)
+                # Edit command
+                local edit_target="${input#e }"
+                edit_app "$edit_target"
+                load_apps_json
+                ;;
+            d\ *)
+                # Delete command
+                local delete_target="${input#d }"
+                delete_app "$delete_target"
+                load_apps_json
                 ;;
             s\ *)
                 # Stop command
