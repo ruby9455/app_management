@@ -45,7 +45,8 @@ tmux_session_exists() {
 ensure_tmux_session() {
     if ! tmux_session_exists; then
         # Create session in detached mode with a placeholder window
-        tmux new-session -d -s "$TMUX_SESSION_NAME" -n "_placeholder" "echo 'App Manager Session'; sleep 1"
+        # Use 'cat' to keep the placeholder alive until killed
+        tmux new-session -d -s "$TMUX_SESSION_NAME" -n "_placeholder"
         echo -e "${GREEN}Created tmux session: $TMUX_SESSION_NAME${NC}"
     fi
 }
@@ -87,9 +88,10 @@ tmux_new_window() {
     fi
     
     # Create new window with the command
-    # The command runs in a bash shell that stays open after completion
+    # Use bash -c with proper escaping for complex commands
+    # The command runs and then waits for user input before closing
     tmux new-window -t "$TMUX_SESSION_NAME" -n "$window_name" -c "$working_dir" \
-        "echo -e '${CYAN}Starting: $app_name${NC}'; echo 'Directory: $working_dir'; echo '---'; $command; echo ''; echo -e '${YELLOW}[App exited. Press Enter to close this window]${NC}'; read"
+        bash -c "echo '=== Starting: $app_name ==='; echo 'Directory: $working_dir'; echo '---'; $command; ret=\$?; echo ''; echo '=== App exited with code '\$ret' ==='; echo 'Press Enter to close this window...'; read"
     
     # Remove placeholder window if it exists
     tmux kill-window -t "$TMUX_SESSION_NAME:_placeholder" 2>/dev/null || true
