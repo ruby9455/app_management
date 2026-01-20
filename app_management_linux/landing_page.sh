@@ -92,9 +92,23 @@ check_dependencies() {
 # Generate the dashboard HTML file
 generate_html() {
     local json_path
-    json_path=$(get_apps_json_path "$SCRIPT_DIR") || {
-        echo -e "${RED}Error: Could not find apps.json${NC}"
-        exit 1
+    json_path=$(get_apps_json_path "$SCRIPT_DIR" 2>/dev/null) || {
+        # apps.json not found - try to create from example
+        local example_path="$SCRIPT_DIR/apps_example.json"
+        local target_path="$SCRIPT_DIR/apps.json"
+        
+        if [[ -f "$example_path" ]]; then
+            echo -e "${YELLOW}apps.json not found. Creating from apps_example.json...${NC}"
+            cp "$example_path" "$target_path"
+            echo -e "${GREEN}Created: $target_path${NC}"
+            echo -e "${CYAN}Please edit apps.json with your actual app configurations.${NC}"
+            echo ""
+            json_path="$target_path"
+        else
+            echo -e "${RED}Error: Could not find apps.json or apps_example.json${NC}"
+            echo "Please create apps.json in: $SCRIPT_DIR"
+            exit 1
+        fi
     }
     
     echo -e "${CYAN}Loading apps from: $json_path${NC}"
