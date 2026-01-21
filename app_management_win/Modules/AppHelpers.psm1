@@ -72,7 +72,13 @@ function ConvertTo-NormalizedAppsList {
         if ($Apps -is [array]) { $arr = $Apps } else { $arr = @($Apps) }
     }
     $supported = @('Streamlit','Django','Dash','Flask')
-    $filtered = @($arr | Where-Object { $_ -and $_.Type -and ($supported -contains $_.Type) })
+    # Include apps with a supported Type OR apps with CustomCommand (type-agnostic custom commands)
+    $filtered = @($arr | Where-Object { 
+        $_ -and (
+            ($_.Type -and ($supported -contains $_.Type)) -or 
+            (Test-FieldHasValue -Object $_ -Name 'CustomCommand')
+        )
+    })
     if ($null -eq $filtered -or $filtered.Count -eq 0) {
         return ,@()
     }

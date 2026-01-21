@@ -192,8 +192,28 @@ build_app_run_command() {
             ;;
             
         *)
-            echo "Error: Unsupported app type: $app_type" >&2
-            return 1
+            # Type-agnostic CustomCommand support (no Type required)
+            if [[ -n "$custom_command" ]]; then
+                local manage_py=$(find_manage_py "$working_dir")
+                if [[ -n "$manage_py" ]]; then
+                    # Django-style management command
+                    if [[ "$pkg_manager" == "uv" ]]; then
+                        run_cmd="uv run python '$manage_py' $custom_command"
+                    else
+                        run_cmd="${activate_prefix}python '$manage_py' $custom_command"
+                    fi
+                else
+                    # Fallback: run as raw command
+                    if [[ "$pkg_manager" == "uv" ]]; then
+                        run_cmd="uv run $custom_command"
+                    else
+                        run_cmd="${activate_prefix}$custom_command"
+                    fi
+                fi
+            else
+                echo "Error: Unsupported app type: $app_type" >&2
+                return 1
+            fi
             ;;
     esac
     

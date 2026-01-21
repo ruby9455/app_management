@@ -529,6 +529,80 @@ add_new_app() {
     fi
 }
 
+# Add a new process (custom command) interactively
+add_new_process() {
+    local json_file="$SCRIPT_DIR/apps.json"
+    
+    print_header "Add New Process (Custom Command)"
+    
+    echo "Examples:"
+    echo "  - Django mgmt cmd: continuous_cache_update"
+    echo "  - Python module: python -m app.db.backup.local_cache_scheduler"
+    echo "  - Any script: python scripts/my_task.py"
+    echo ""
+    
+    # Get working directory path
+    read -r -p "Enter working directory path (absolute path): " app_path
+    if [[ -z "$app_path" || "$app_path" == "back" ]]; then
+        echo "Cancelled."
+        return
+    fi
+    
+    # Expand ~ if used
+    app_path="${app_path/#\~/$HOME}"
+    
+    if [[ ! -d "$app_path" ]]; then
+        echo -e "${RED}Error: Directory does not exist: $app_path${NC}"
+        return 1
+    fi
+    
+    app_path=$(realpath "$app_path")
+    
+    # Get process name
+    local default_name=$(basename "$app_path")
+    read -r -p "Enter process name [$default_name]: " app_name
+    app_name="${app_name:-$default_name}"
+    
+    # Check for duplicate
+    if app_name_exists "$json_file" "$app_name"; then
+        echo -e "${RED}Error: A process/app named '$app_name' already exists${NC}"
+        return 1
+    fi
+    
+    # Get custom command
+    read -r -p "Enter command to run: " custom_command
+    if [[ -z "$custom_command" ]]; then
+        echo -e "${RED}Error: Command is required${NC}"
+        return 1
+    fi
+    
+    # Get package manager
+    local pkg_manager=$(detect_package_manager "$app_path")
+    echo -e "${CYAN}Detected package manager: $pkg_manager${NC}"
+    
+    # Find venv (optional for custom commands)
+    local venv_path=$(find_venv "$app_path" 2>/dev/null || echo "")
+    if [[ -n "$venv_path" ]]; then
+        echo -e "${CYAN}Found venv: $venv_path${NC}"
+    fi
+    
+    # Build process JSON
+    local new_app=$(build_process_json "$app_name" "$app_path" "$custom_command" "$venv_path" "$pkg_manager")
+    
+    echo ""
+    echo -e "${CYAN}New process configuration:${NC}"
+    echo "$new_app" | jq .
+    echo ""
+    
+    read -r -p "Save this process? [Y/n]: " confirm
+    if [[ -z "$confirm" || "${confirm,,}" =~ ^(y|yes)$ ]]; then
+        add_app_to_json "$json_file" "$new_app"
+        echo -e "${GREEN}Process '$app_name' added successfully!${NC}"
+    else
+        echo "Cancelled."
+    fi
+}
+
 # Edit an existing app
 edit_app() {
     local target="$1"
@@ -656,6 +730,7 @@ interactive_menu() {
         echo "  S           - Stop all running apps"
         echo "  r [num]     - Restart app by index"
         echo "  a           - Add a new app"
+        echo "  p           - Add a new process (custom command)"
         echo "  e [num]     - Edit app by index"
         echo "  d [num]     - Delete app by index"
         echo "  l           - List tmux windows"
@@ -691,6 +766,9 @@ interactive_menu() {
                 ;;
             a|add)
                 add_new_app
+                ;;
+            p|process)
+                add_new_process
                 ;;
             l|list)
                 tmux_list_windows

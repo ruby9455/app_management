@@ -241,11 +241,32 @@ function Start-AppsList {
             $manageRel = Get-ManagePyRelative -WorkingDir $workingDir
             if (-not $manageRel) { Write-Warning "Skipping '$name': manage.py not found under '$workingDir'."; continue }
             $escapedManage = $manageRel -replace "'", "''"
-            $runserverPortArg = ''
-            $djangoPort = Get-FieldValue -Object $app -Name 'Port'
-            if ($djangoPort) { $runserverPortArg = " $djangoPort" }
-            if ($packageManager -ieq 'uv') { $runCmd = "uv run '$escapedManage' runserver$runserverPortArg" }
-            else { $runCmd = "${bootstrapPrefix}${venvActivatePrefix}py '$escapedManage' runserver$runserverPortArg" }
+            # Check for CustomCommand (runs Django management command instead of runserver)
+            $customCmd = Get-FieldValue -Object $app -Name 'CustomCommand'
+            if (-not [string]::IsNullOrWhiteSpace([string]$customCmd)) {
+                if ($packageManager -ieq 'uv') { $runCmd = "uv run python '$escapedManage' $customCmd" }
+                else { $runCmd = "${bootstrapPrefix}${venvActivatePrefix}py '$escapedManage' $customCmd" }
+            } else {
+                $runserverPortArg = ''
+                $djangoPort = Get-FieldValue -Object $app -Name 'Port'
+                if ($djangoPort) { $runserverPortArg = " $djangoPort" }
+                if ($packageManager -ieq 'uv') { $runCmd = "uv run '$escapedManage' runserver$runserverPortArg" }
+                else { $runCmd = "${bootstrapPrefix}${venvActivatePrefix}py '$escapedManage' runserver$runserverPortArg" }
+            }
+        } elseif (Test-FieldHasValue -Object $app -Name 'CustomCommand') {
+            # Type-agnostic CustomCommand: just run the command in the app directory
+            $customCmd = Get-FieldValue -Object $app -Name 'CustomCommand'
+            # Look for manage.py for Django-style commands, otherwise run as Python script
+            $manageRel = Get-ManagePyRelative -WorkingDir $workingDir
+            if ($manageRel) {
+                $escapedManage = $manageRel -replace "'", "''"
+                if ($packageManager -ieq 'uv') { $runCmd = "uv run python '$escapedManage' $customCmd" }
+                else { $runCmd = "${bootstrapPrefix}${venvActivatePrefix}py '$escapedManage' $customCmd" }
+            } else {
+                # Fallback: run as raw command (e.g., "python script.py args")
+                if ($packageManager -ieq 'uv') { $runCmd = "uv run $customCmd" }
+                else { $runCmd = "${bootstrapPrefix}${venvActivatePrefix}$customCmd" }
+            }
         } elseif ($type -ieq 'Dash') {
             if ($packageManager -ieq 'uv') { $runCmd = "uv run python '$escapedIndex'$dashPortArg" }
             else { $runCmd = "${bootstrapPrefix}${venvActivatePrefix}python '$escapedIndex'$dashPortArg" }

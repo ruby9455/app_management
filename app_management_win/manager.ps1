@@ -241,9 +241,10 @@ function Show-MainMenu {
         Write-Output "3. Restart app(s) - enter 0 for all"
         Write-Output "4. Update app(s) from repo(s) - enter 0 for all"
         Write-Output "5. Add a new app to apps.json"
-        Write-Output "6. Update/Remove an app from apps.json"
-        Write-Output "7. Save the apps list to apps.json"
-        Write-Output "8. Generate/Update HTML Dashboard"
+        Write-Output "6. Add a new process (custom command)"
+        Write-Output "7. Update/Remove an app from apps.json"
+        Write-Output "8. Save the apps list to apps.json"
+        Write-Output "9. Generate/Update HTML Dashboard"
         Write-Output "0. Close all idle app tabs"
         Write-Output "=============================="
         $option = Read-Host "Enter option"
@@ -307,7 +308,7 @@ function Show-MainMenu {
                 Generate-HtmlDashboard
             }
             5 {
-                # Add app
+                # Add app (standard web app)
                 Write-Host "===== Add App Setting ====="
                 $appPath = Read-Host ">>> Enter app path (or 'back' to cancel)"
                 if ($appPath -ieq 'back') { continue }
@@ -363,6 +364,59 @@ function Show-MainMenu {
                 Update-Json
             }
             6 {
+                # Add process (custom command)
+                Write-Host "===== Add Process (Custom Command) ====="
+                Write-Host "Examples:"
+                Write-Host "  - Django mgmt cmd: continuous_cache_update"
+                Write-Host "  - Python module: python -m app.db.backup.local_cache_scheduler"
+                Write-Host "  - Any script: python scripts/my_task.py"
+                Write-Host ""
+                
+                $processPath = Read-Host ">>> Enter working directory path (or 'back' to cancel)"
+                if ($processPath -ieq 'back') { continue }
+                $defaultName = Split-Path -Path $processPath -Leaf
+                $processName = Read-Host "Process name [$defaultName]"
+                if (-not $processName) { $processName = $defaultName }
+                
+                # Guard: prevent duplicate names
+                $exists = ($global:apps | Where-Object { (Get-FieldValue -Object $_ -Name 'Name') -ieq $processName })
+                if ($exists) {
+                    Write-Host "An app/process named '$processName' already exists. Please choose a different name."
+                    break
+                }
+                
+                $customCommand = Read-Host ">>> Enter command to run"
+                if (-not $customCommand) {
+                    Write-Host "Command is required."
+                    break
+                }
+                
+                $detectedPM = Get-PackageManager -ProjectDirectory $processPath
+                Write-Host "Detected package manager: $detectedPM"
+                
+                # Optional: detect venv
+                $venvDirectory = Find-Venv -ProjectDirectory $processPath
+                $detectedVenvPath = ""
+                if ($venvDirectory) {
+                    $detectedVenvPath = Join-Path -Path $processPath -ChildPath $venvDirectory
+                }
+                
+                # Build process entry using PSCustomObject to avoid hashtable issues
+                $newProcess = [PSCustomObject]@{
+                    Name = $processName
+                    AppPath = $processPath
+                    CustomCommand = $customCommand
+                    PackageManager = $detectedPM
+                }
+                if ($detectedVenvPath) {
+                    $newProcess | Add-Member -NotePropertyName 'VenvPath' -NotePropertyValue $detectedVenvPath
+                }
+                
+                if (-not $global:apps) { $global:apps = @($newProcess) } else { $global:apps = @($global:apps) + @($newProcess) }
+                Write-Output "Process '$processName' added successfully."
+                Update-Json
+            }
+            7 {
                 # Combined Update/Remove app
                 $list = Show-AppsTab
                 if ($null -eq $list -or $list.Length -eq 0) {
@@ -469,10 +523,10 @@ function Show-MainMenu {
                     Write-Output "Invalid action. Please enter 'u' or 'd'."
                 }
             }
-            7 {
+            8 {
                 Update-Json
             }
-            8 {
+            9 {
                 Generate-HtmlDashboard
             }
             0 {

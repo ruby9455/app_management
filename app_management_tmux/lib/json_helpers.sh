@@ -226,3 +226,30 @@ build_app_json() {
     
     echo "$json"
 }
+
+# Build process JSON object (custom command, no Type required)
+# Usage: build_process_json "name" "app_path" "custom_command" "venv_path" "pkg_manager"
+build_process_json() {
+    local name="$1"
+    local app_path="$2"
+    local custom_command="$3"
+    local venv_path="${4:-}"
+    local pkg_manager="${5:-}"
+    
+    local json=$(jq -n \
+        --arg name "$name" \
+        --arg appPath "$app_path" \
+        --arg customCmd "$custom_command" \
+        '{Name: $name, AppPath: $appPath, CustomCommand: $customCmd}')
+    
+    # Add optional fields if present
+    if [[ -n "$venv_path" ]]; then
+        json=$(echo "$json" | jq --arg val "$venv_path" '. + {VenvPath: $val}')
+    fi
+    
+    if [[ -n "$pkg_manager" ]]; then
+        json=$(echo "$json" | jq --arg val "$pkg_manager" '. + {PackageManager: $val}')
+    fi
+    
+    echo "$json"
+}
