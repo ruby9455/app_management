@@ -178,11 +178,11 @@ tmux_restart_app() {
 tmux_list_windows() {
     if ! tmux_session_exists; then
         echo -e "${YELLOW}No tmux session found${NC}"
-        return 1
+        return 0  # Don't return error - it's a valid state
     fi
     
     echo -e "${CYAN}tmux windows in session '$TMUX_SESSION_NAME':${NC}"
-    tmux list-windows -t "$TMUX_SESSION_NAME" -F '  #{window_index}: #{window_name} (#{window_panes} pane(s))' 2>/dev/null
+    tmux list-windows -t "$TMUX_SESSION_NAME" -F '  #{window_index}: #{window_name} (#{window_panes} pane(s))' 2>/dev/null || true
 }
 
 # Get list of running window names
@@ -200,11 +200,11 @@ get_running_window_names() {
 tmux_kill_all_windows() {
     if ! tmux_session_exists; then
         echo -e "${YELLOW}No tmux session found${NC}"
-        return 1
+        return 0  # Don't return error - it's a valid state
     fi
     
     # Get all window names
-    local windows=$(tmux list-windows -t "$TMUX_SESSION_NAME" -F '#{window_name}' 2>/dev/null)
+    local windows=$(tmux list-windows -t "$TMUX_SESSION_NAME" -F '#{window_name}' 2>/dev/null || true)
     
     for window in $windows; do
         if [[ "$window" != "_placeholder" ]]; then
@@ -224,14 +224,14 @@ tmux_kill_all_windows() {
 tmux_attach() {
     if ! tmux_session_exists; then
         echo -e "${YELLOW}No tmux session found. Start some apps first.${NC}"
-        return 1
+        return 0  # Don't return error - it's a valid state
     fi
     
     if is_in_tmux; then
         # Already in tmux, switch to session
-        tmux switch-client -t "$TMUX_SESSION_NAME"
+        tmux switch-client -t "$TMUX_SESSION_NAME" || true
     else
-        tmux attach-session -t "$TMUX_SESSION_NAME"
+        tmux attach-session -t "$TMUX_SESSION_NAME" || true
     fi
 }
 

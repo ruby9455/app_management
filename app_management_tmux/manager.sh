@@ -771,12 +771,12 @@ interactive_menu() {
                 add_new_process
                 ;;
             l|list)
-                tmux_list_windows
+                tmux_list_windows || true
                 ;;
             t|attach)
                 echo -e "${CYAN}Attaching to tmux session... (Ctrl+B, D to detach)${NC}"
                 sleep 1
-                tmux_attach
+                tmux_attach || echo -e "${YELLOW}No tmux session to attach to${NC}"
                 ;;
             s)
                 # Just 's' alone - show usage
@@ -784,7 +784,7 @@ interactive_menu() {
                 ;;
             "S")
                 # Capital S - stop all
-                stop_all_apps
+                stop_all_apps || true
                 ;;
             e\ *|e[0-9]*)
                 # Edit command
