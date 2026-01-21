@@ -177,7 +177,8 @@ function Show-AppsTab {
     for ($i = 0; $i -lt $sorted.Count; $i++) {
         $name = Get-FieldValue -Object $sorted[$i] -Name 'Name'
         $port = Get-FieldValue -Object $sorted[$i] -Name 'Port'
-        Write-Host ("{0}: {1} (port {2})" -f ($i+1), $name, $port)
+        $portDisplay = if ($port) { $port } else { "N/A" }
+        Write-Host ("{0}: {1} (port {2})" -f ($i+1), $name, $portDisplay)
     }
     return $sorted
 }
