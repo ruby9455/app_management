@@ -806,7 +806,7 @@ interactive_menu() {
                     local idx=$((stop_target - 1))
                     local app_json=$(echo "$APPS_JSON" | jq ".[$idx] // empty")
                     if [[ -n "$app_json" && "$app_json" != "null" ]]; then
-                        stop_app "$app_json"
+                        stop_app "$app_json" || true
                     else
                         echo -e "${RED}Invalid index: $stop_target${NC}"
                     fi
@@ -822,7 +822,7 @@ interactive_menu() {
                     local idx=$((restart_target - 1))
                     local app_json=$(echo "$APPS_JSON" | jq ".[$idx] // empty")
                     if [[ -n "$app_json" && "$app_json" != "null" ]]; then
-                        restart_app "$app_json"
+                        restart_app "$app_json" || true
                     else
                         echo -e "${RED}Invalid index: $restart_target${NC}"
                     fi

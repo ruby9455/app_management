@@ -122,10 +122,10 @@ tmux_kill_window() {
     
     if ! tmux_window_exists "$app_name"; then
         echo -e "${YELLOW}Window '$app_name' not found${NC}"
-        return 1
+        return 0
     fi
     
-    tmux kill-window -t "$TMUX_SESSION_NAME:$window_name"
+    tmux kill-window -t "$TMUX_SESSION_NAME:$window_name" || true
     echo -e "${GREEN}Killed window: $app_name${NC}"
     return 0
 }
@@ -138,7 +138,7 @@ tmux_stop_app() {
     local window_name=$(sanitize_window_name "$app_name")
     
     if ! tmux_window_exists "$app_name"; then
-        return 1
+        return 0
     fi
     
     # Send Ctrl+C to gracefully stop
