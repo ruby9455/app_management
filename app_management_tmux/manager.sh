@@ -354,6 +354,96 @@ restart_app() {
     start_app "$app_json"
 }
 
+# Update a single app (git pull + sync venv + restart)
+update_app() {
+    local app_json="$1"
+    local name=$(echo "$app_json" | jq -r '.Name')
+    local app_path=$(echo "$app_json" | jq -r '.AppPath')
+    local package_manager=$(echo "$app_json" | jq -r '.PackageManager // empty')
+    
+    if $DRY_RUN; then
+        echo -e "${YELLOW}[DRY RUN] Would update '$name'${NC}"
+        return 0
+    fi
+    
+    echo -e "${CYAN}===== Updating '$name' =====${NC}"
+    
+    # Stop the app first
+    stop_app "$app_json"
+    
+    # Wait for port to be free
+    local port=$(echo "$app_json" | jq -r '.Port // empty')
+    if [[ -n "$port" && "$port" != "null" ]]; then
+        wait_for_port_free "$port" 5
+    fi
+    
+    # Git pull
+    if [[ -d "$app_path/.git" ]]; then
+        echo -e "${CYAN}Pulling latest changes from git...${NC}"
+        pushd "$app_path" > /dev/null
+        if git pull; then
+            echo -e "${GREEN}Git pull successful${NC}"
+        else
+            echo -e "${YELLOW}Git pull failed or no changes${NC}"
+        fi
+        popd > /dev/null
+    else
+        echo -e "${YELLOW}No git repository found in '$app_path'${NC}"
+    fi
+    
+    # Update virtual environment
+    if [[ -z "$package_manager" || "$package_manager" == "null" ]]; then
+        package_manager=$(detect_package_manager "$app_path")
+    fi
+    
+    echo -e "${CYAN}Updating dependencies with $package_manager...${NC}"
+    pushd "$app_path" > /dev/null
+    
+    if [[ "$package_manager" == "uv" ]]; then
+        if uv sync; then
+            echo -e "${GREEN}Dependencies updated with uv sync${NC}"
+        else
+            echo -e "${YELLOW}Failed to update dependencies${NC}"
+        fi
+    else
+        # pip - look for requirements.txt
+        local requirements_file=""
+        if [[ -f "requirements.txt" ]]; then
+            requirements_file="requirements.txt"
+        elif [[ -f "requirements/base.txt" ]]; then
+            requirements_file="requirements/base.txt"
+        fi
+        
+        if [[ -n "$requirements_file" ]]; then
+            local venv_path=$(echo "$app_json" | jq -r '.VenvPath // empty')
+            local pip_cmd="pip"
+            
+            if [[ -n "$venv_path" && "$venv_path" != "null" && -f "$venv_path/bin/pip" ]]; then
+                pip_cmd="$venv_path/bin/pip"
+            elif [[ -f ".venv/bin/pip" ]]; then
+                pip_cmd=".venv/bin/pip"
+            elif [[ -f "venv/bin/pip" ]]; then
+                pip_cmd="venv/bin/pip"
+            fi
+            
+            if $pip_cmd install -r "$requirements_file"; then
+                echo -e "${GREEN}Dependencies updated with pip${NC}"
+            else
+                echo -e "${YELLOW}Failed to update dependencies${NC}"
+            fi
+        else
+            echo -e "${YELLOW}No requirements file found${NC}"
+        fi
+    fi
+    popd > /dev/null
+    
+    # Restart the app
+    echo -e "${CYAN}Starting '$name'...${NC}"
+    start_app "$app_json"
+    
+    echo -e "${GREEN}Update complete for '$name'${NC}"
+}
+
 # Start apps by selection
 start_selected_apps() {
     local selection="$1"
@@ -729,6 +819,7 @@ interactive_menu() {
         echo "  s [num]     - Stop app by index"
         echo "  S           - Stop all running apps"
         echo "  r [num]     - Restart app by index"
+        echo "  u [num]     - Update app from repo (0 for all)"
         echo "  a           - Add a new app"
         echo "  p           - Add a new process (custom command)"
         echo "  e [num]     - Edit app by index"
@@ -828,6 +919,28 @@ interactive_menu() {
                     fi
                 else
                     echo -e "${YELLOW}Usage: r <number>${NC}"
+                fi
+                ;;
+            u\ *|u[0-9]*|u0)
+                # Update command (git pull + sync venv + restart)
+                local update_target="${input#u }"
+                update_target="${update_target#u}"
+                if [[ "$update_target" == "0" ]]; then
+                    # Update all apps
+                    echo -e "${CYAN}Updating all apps...${NC}"
+                    echo "$APPS_JSON" | jq -c '.[]' | while IFS= read -r app; do
+                        update_app "$app" || true
+                    done
+                elif [[ "$update_target" =~ ^[0-9]+$ ]]; then
+                    local idx=$((update_target - 1))
+                    local app_json=$(echo "$APPS_JSON" | jq ".[$idx] // empty")
+                    if [[ -n "$app_json" && "$app_json" != "null" ]]; then
+                        update_app "$app_json" || true
+                    else
+                        echo -e "${RED}Invalid index: $update_target${NC}"
+                    fi
+                else
+                    echo -e "${YELLOW}Usage: u <number> or u 0 for all${NC}"
                 fi
                 ;;
             *)
