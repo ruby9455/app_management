@@ -194,20 +194,31 @@ build_app_run_command() {
         *)
             # Type-agnostic CustomCommand support (no Type required)
             if [[ -n "$custom_command" ]]; then
-                local manage_py=$(find_manage_py "$working_dir")
-                if [[ -n "$manage_py" ]]; then
-                    # Django-style management command
-                    if [[ "$pkg_manager" == "uv" ]]; then
-                        run_cmd="uv run python '$manage_py' $custom_command"
-                    else
-                        run_cmd="${activate_prefix}python '$manage_py' $custom_command"
-                    fi
-                else
-                    # Fallback: run as raw command
-                    if [[ "$pkg_manager" == "uv" ]]; then
+                # Check if custom_command looks like a full command (starts with python, uv, etc.)
+                # or if it's just a Django management command name
+                if [[ "$custom_command" =~ ^(python|uv|pip|bash|sh|\./) ]]; then
+                    # Full command - run as-is
+                    if [[ "$pkg_manager" == "uv" && ! "$custom_command" =~ ^uv ]]; then
                         run_cmd="uv run $custom_command"
                     else
                         run_cmd="${activate_prefix}$custom_command"
+                    fi
+                else
+                    # Looks like a Django management command (single word or with args)
+                    local manage_py=$(find_manage_py "$working_dir")
+                    if [[ -n "$manage_py" ]]; then
+                        if [[ "$pkg_manager" == "uv" ]]; then
+                            run_cmd="uv run python '$manage_py' $custom_command"
+                        else
+                            run_cmd="${activate_prefix}python '$manage_py' $custom_command"
+                        fi
+                    else
+                        # No manage.py found, try running as raw command
+                        if [[ "$pkg_manager" == "uv" ]]; then
+                            run_cmd="uv run $custom_command"
+                        else
+                            run_cmd="${activate_prefix}$custom_command"
+                        fi
                     fi
                 fi
             else

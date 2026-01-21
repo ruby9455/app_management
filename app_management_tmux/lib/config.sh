@@ -74,10 +74,10 @@ load_apps() {
     cat "$json_file"
 }
 
-# Filter apps by supported types
+# Filter apps by supported types (or apps with CustomCommand)
 # Usage: echo "$apps_json" | filter_supported_apps
 filter_supported_apps() {
-    jq '[.[] | select(.Type == "Streamlit" or .Type == "Django" or .Type == "Dash" or .Type == "Flask")]'
+    jq '[.[] | select(.Type == "Streamlit" or .Type == "Django" or .Type == "Dash" or .Type == "Flask" or (.CustomCommand != null and .CustomCommand != ""))]'
 }
 
 # Get unique apps by name
