@@ -63,8 +63,8 @@ INTERACTIVE COMMANDS:
     S             Stop all running apps
     r [num]       Restart app by index
     a             Add a new app
-    e [num]       Edit app
-    d [num]       Delete app
+    e [num]       Edit by index
+    d [num]       Delete by index
     l             List tmux windows
     t             Attach to tmux session
     q             Quit
@@ -693,7 +693,7 @@ add_new_process() {
     fi
 }
 
-# Edit an existing app
+# Edit an existing app or process
 edit_app() {
     local target="$1"
     local json_file="$SCRIPT_DIR/apps.json"
@@ -712,58 +712,108 @@ edit_app() {
     fi
     
     local app_name=$(echo "$app_json" | jq -r '.Name')
-    print_header "Edit App: $app_name"
+    local custom_command=$(echo "$app_json" | jq -r '.CustomCommand // empty')
     
-    echo "Current configuration:"
-    echo "$app_json" | jq .
-    echo ""
-    
-    # Edit each field
-    local current_name=$(echo "$app_json" | jq -r '.Name')
-    read -r -p "Name [$current_name]: " new_name
-    new_name="${new_name:-$current_name}"
-    
-    local current_type=$(echo "$app_json" | jq -r '.Type')
-    read -r -p "Type [$current_type]: " new_type
-    new_type="${new_type:-$current_type}"
-    
-    local current_port=$(echo "$app_json" | jq -r '.Port')
-    read -r -p "Port [$current_port]: " new_port
-    new_port="${new_port:-$current_port}"
-    
-    local current_app_path=$(echo "$app_json" | jq -r '.AppPath')
-    read -r -p "AppPath [$current_app_path]: " new_app_path
-    new_app_path="${new_app_path:-$current_app_path}"
-    
-    local current_index=$(echo "$app_json" | jq -r '.IndexPath // ""')
-    local new_index=""
-    if [[ "$new_type" == "Streamlit" || "$new_type" == "Flask" || "$new_type" == "Dash" ]]; then
-        read -r -p "IndexPath [$current_index]: " new_index
-        new_index="${new_index:-$current_index}"
-    fi
-    
-    local current_venv=$(echo "$app_json" | jq -r '.VenvPath // ""')
-    read -r -p "VenvPath [$current_venv]: " new_venv
-    new_venv="${new_venv:-$current_venv}"
-    
-    local current_pm=$(echo "$app_json" | jq -r '.PackageManager // ""')
-    read -r -p "PackageManager [$current_pm]: " new_pm
-    new_pm="${new_pm:-$current_pm}"
-    
-    # Build updated app
-    local updated_app=$(build_app_json "$new_name" "$new_type" "$new_port" "$new_app_path" "$new_index" "$new_venv" "$new_pm")
-    
-    echo ""
-    echo -e "${CYAN}Updated configuration:${NC}"
-    echo "$updated_app" | jq .
-    echo ""
-    
-    read -r -p "Save changes? [Y/n]: " confirm
-    if [[ -z "$confirm" || "${confirm,,}" =~ ^(y|yes)$ ]]; then
-        update_app_in_json "$json_file" "$current_name" "$updated_app"
-        echo -e "${GREEN}App '$new_name' updated successfully!${NC}"
+    # Check if this is a process (has CustomCommand) or an app (has Type)
+    if [[ -n "$custom_command" && "$custom_command" != "null" ]]; then
+        # Edit as process
+        print_header "Edit Process: $app_name"
+        
+        echo "Current configuration:"
+        echo "$app_json" | jq .
+        echo ""
+        
+        # Edit process fields
+        local current_name=$(echo "$app_json" | jq -r '.Name')
+        read -r -p "Name [$current_name]: " new_name
+        new_name="${new_name:-$current_name}"
+        
+        local current_app_path=$(echo "$app_json" | jq -r '.AppPath')
+        read -r -p "AppPath [$current_app_path]: " new_app_path
+        new_app_path="${new_app_path:-$current_app_path}"
+        
+        local current_cmd=$(echo "$app_json" | jq -r '.CustomCommand')
+        read -r -p "CustomCommand [$current_cmd]: " new_cmd
+        new_cmd="${new_cmd:-$current_cmd}"
+        
+        local current_venv=$(echo "$app_json" | jq -r '.VenvPath // ""')
+        read -r -p "VenvPath [$current_venv]: " new_venv
+        new_venv="${new_venv:-$current_venv}"
+        
+        local current_pm=$(echo "$app_json" | jq -r '.PackageManager // ""')
+        read -r -p "PackageManager [$current_pm]: " new_pm
+        new_pm="${new_pm:-$current_pm}"
+        
+        # Build updated process
+        local updated_app=$(build_process_json "$new_name" "$new_app_path" "$new_cmd" "$new_venv" "$new_pm")
+        
+        echo ""
+        echo -e "${CYAN}Updated configuration:${NC}"
+        echo "$updated_app" | jq .
+        echo ""
+        
+        read -r -p "Save changes? [Y/n]: " confirm
+        if [[ -z "$confirm" || "${confirm,,}" =~ ^(y|yes)$ ]]; then
+            update_app_in_json "$json_file" "$current_name" "$updated_app"
+            echo -e "${GREEN}Process '$new_name' updated successfully!${NC}"
+        else
+            echo "Cancelled."
+        fi
     else
-        echo "Cancelled."
+        # Edit as app
+        print_header "Edit App: $app_name"
+        
+        echo "Current configuration:"
+        echo "$app_json" | jq .
+        echo ""
+        
+        # Edit app fields
+        local current_name=$(echo "$app_json" | jq -r '.Name')
+        read -r -p "Name [$current_name]: " new_name
+        new_name="${new_name:-$current_name}"
+        
+        local current_type=$(echo "$app_json" | jq -r '.Type')
+        read -r -p "Type [$current_type]: " new_type
+        new_type="${new_type:-$current_type}"
+        
+        local current_port=$(echo "$app_json" | jq -r '.Port')
+        read -r -p "Port [$current_port]: " new_port
+        new_port="${new_port:-$current_port}"
+        
+        local current_app_path=$(echo "$app_json" | jq -r '.AppPath')
+        read -r -p "AppPath [$current_app_path]: " new_app_path
+        new_app_path="${new_app_path:-$current_app_path}"
+        
+        local current_index=$(echo "$app_json" | jq -r '.IndexPath // ""')
+        local new_index=""
+        if [[ "$new_type" == "Streamlit" || "$new_type" == "Flask" || "$new_type" == "Dash" ]]; then
+            read -r -p "IndexPath [$current_index]: " new_index
+            new_index="${new_index:-$current_index}"
+        fi
+        
+        local current_venv=$(echo "$app_json" | jq -r '.VenvPath // ""')
+        read -r -p "VenvPath [$current_venv]: " new_venv
+        new_venv="${new_venv:-$current_venv}"
+        
+        local current_pm=$(echo "$app_json" | jq -r '.PackageManager // ""')
+        read -r -p "PackageManager [$current_pm]: " new_pm
+        new_pm="${new_pm:-$current_pm}"
+        
+        # Build updated app
+        local updated_app=$(build_app_json "$new_name" "$new_type" "$new_port" "$new_app_path" "$new_index" "$new_venv" "$new_pm")
+        
+        echo ""
+        echo -e "${CYAN}Updated configuration:${NC}"
+        echo "$updated_app" | jq .
+        echo ""
+        
+        read -r -p "Save changes? [Y/n]: " confirm
+        if [[ -z "$confirm" || "${confirm,,}" =~ ^(y|yes)$ ]]; then
+            update_app_in_json "$json_file" "$current_name" "$updated_app"
+            echo -e "${GREEN}App '$new_name' updated successfully!${NC}"
+        else
+            echo "Cancelled."
+        fi
     fi
 }
 
@@ -822,7 +872,7 @@ interactive_menu() {
         echo "  u [num]     - Update app from repo (0 for all)"
         echo "  a           - Add a new app"
         echo "  p           - Add a new process (custom command)"
-        echo "  e [num]     - Edit app by index"
+        echo "  e [num]     - Edit by index"
         echo "  d [num]     - Delete app by index"
         echo "  l           - List tmux windows"
         echo "  t           - Attach to tmux session"
