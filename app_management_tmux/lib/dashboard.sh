@@ -185,6 +185,17 @@ HEADER_HTML
         
         local type_class=$(echo "$app_type" | tr '[:upper:]' '[:lower:]')
         
+        # Check if port is in use
+        local port_in_use=false
+        local status_class="status-stopped"
+        local status_text="Stopped"
+        
+        if nc -z localhost "$port" 2>/dev/null || lsof -i ":$port" -sTCP:LISTEN -t >/dev/null 2>&1; then
+            port_in_use=true
+            status_class="status-running"
+            status_text="Running"
+        fi
+        
         # Build URLs
         local path_suffix=""
         [[ -n "$base_path" ]] && path_suffix="/${base_path#/}"
@@ -195,7 +206,10 @@ HEADER_HTML
         
         cat << EOF
             <div class="app-card">
-                <div class="app-name">$name</div>
+                <div class="app-name">
+                    $name
+                    <span class="status-indicator $status_class" title="$status_text"></span>
+                </div>
                 <span class="app-type $type_class">$app_type</span>
                 <div class="url-section">
                     <div class="url-label">🏠 Localhost:</div>
