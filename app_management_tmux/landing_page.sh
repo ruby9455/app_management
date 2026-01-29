@@ -20,6 +20,38 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
+# Track Python PID for cleanup
+PYTHON_PID=""
+
+# Cleanup function to kill Python server
+cleanup() {
+    # Restore terminal settings
+    stty sane 2>/dev/null || true
+    
+    echo ""
+    echo -e "${YELLOW}Shutting down server...${NC}"
+    
+    # Kill the Python process if we have its PID
+    if [[ -n "$PYTHON_PID" ]]; then
+        kill "$PYTHON_PID" 2>/dev/null || true
+        wait "$PYTHON_PID" 2>/dev/null || true
+    fi
+    
+    # Also kill any Python servers on our port range
+    pkill -f "python3.*http.server" 2>/dev/null || true
+    
+    # Kill any remaining Python processes listening on landing page ports
+    for p in {1111..1120}; do
+        fuser -k ${p}/tcp 2>/dev/null || true
+    done
+    
+    echo -e "${GREEN}Server stopped${NC}"
+    exit 0
+}
+
+# Trap SIGTERM for cleanup
+trap cleanup SIGTERM EXIT
+
 # Source helper libraries
 source "$SCRIPT_DIR/lib/config.sh"
 source "$SCRIPT_DIR/lib/url_helpers.sh"
@@ -72,7 +104,6 @@ echo ""
 # Try to use Python's built-in HTTP server if available (more reliable)
 if command -v python3 &> /dev/null; then
     echo -e "${GREEN}Starting HTTP server on port $PORT${NC}"
-    echo -e "${CYAN}Press Ctrl+C to stop${NC}"
     echo ""
     echo -e "Access the dashboard at:"
     echo -e "  ${GREEN}Network:${NC}   ${NETWORK_URL}:${PORT}${NC}"
@@ -84,7 +115,8 @@ if command -v python3 &> /dev/null; then
     export SCRIPT_DIR
     export PORT
     
-    python3 << 'PYTHON_EOF'
+    # Start Python server in background and capture its PID
+    python3 << 'PYTHON_EOF' &
 import http.server
 import socketserver
 import os
@@ -174,6 +206,17 @@ except OSError as e:
     else:
         raise
 PYTHON_EOF
+    
+    # Capture the PID of the background Python process
+    PYTHON_PID=$!
+    
+    # Simple approach: just wait for Enter key or any input to stop
+    echo -e "${CYAN}Server running (PID: $PYTHON_PID)${NC}"
+    echo -e "${CYAN}Press Enter to stop, or use: ${NC}${YELLOW}pkill -P $$${NC}"
+    read -r
+    
+    # User pressed Enter, trigger cleanup
+    cleanup
 else
     # Fallback to bash/nc approach
     echo -e "${YELLOW}Python3 not found, using netcat for HTTP server${NC}"
@@ -186,7 +229,6 @@ else
     fi
     
     echo -e "${GREEN}Starting HTTP server on port $PORT (netcat)${NC}"
-    echo -e "${CYAN}Press Ctrl+C to stop${NC}"
     echo ""
     echo -e "Access the dashboard at:"
     echo -e "  ${GREEN}Network:${NC}   ${NETWORK_URL}:${PORT}${NC}"
