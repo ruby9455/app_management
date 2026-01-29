@@ -27,13 +27,28 @@ function New-AppDashboardHtml {
     $appsWithPorts = @($Apps | Where-Object {
         if ($_ -eq $null) { return $false }
         $port = $null
-        if ($_ -is [System.Management.Automation.PSCustomObject] -or $_ -is [hashtable]) {
+        
+        # Handle PSCustomObject (from JSON)
+        if ($_ -is [System.Management.Automation.PSCustomObject]) {
             if ($_.PSObject.Properties.Name -contains 'Port') {
                 $port = $_.Port
-            } elseif ($_.ContainsKey('Port')) {
+            }
+        }
+        # Handle hashtable
+        elseif ($_ -is [hashtable]) {
+            if ($_.ContainsKey('Port')) {
                 $port = $_['Port']
             }
         }
+        # Try direct property access as fallback
+        else {
+            try {
+                $port = $_.Port
+            } catch {
+                return $false
+            }
+        }
+        
         if ($null -eq $port) { return $false }
         if ([string]::IsNullOrWhiteSpace([string]$port)) { return $false }
         try {
