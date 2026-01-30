@@ -94,17 +94,24 @@ function Get-DashboardHtml {
 
 # Check if HTML file exists, if not generate it
 if (Test-Path $htmlFilePath) {
-    Write-Host "HTML dashboard found at: $htmlFilePath"
+    Write-Host "Dashboard found at: $htmlFilePath" -ForegroundColor Blue
 } else {
-    Write-Host "Generating HTML dashboard..."
+    Write-Host "Generating dashboard HTML..." -ForegroundColor Blue
     $htmlContent = Get-DashboardHtml
     $htmlContent | Out-File -FilePath $htmlFilePath -Encoding UTF8
-    Write-Host "HTML dashboard generated and saved to: $htmlFilePath"
+    Write-Host "Dashboard generated and saved to: $htmlFilePath" -ForegroundColor Green
 }
 
-# Start HTTP server
-Write-Host "Starting HTTP server on http://$HostAddress`:$Port/"
-Write-Host "Press Ctrl+C to stop the server"
+# Detect URL prefixes for display
+$displayNetworkUrl = if (Get-Command -Name Get-NetworkUrlPrefix -ErrorAction SilentlyContinue) { Get-NetworkUrlPrefix } else { "http://localhost" }
+$displayExternalUrl = if (Get-Command -Name Get-ExternalUrlPrefix -ErrorAction SilentlyContinue) { Get-ExternalUrlPrefix } else { "http://localhost" }
+$displayGenericUrl = if (Get-Command -Name Get-GenericUrlPrefix -ErrorAction SilentlyContinue) { Get-GenericUrlPrefix } else { "http://localhost" }
+
+Write-Host "Detecting network configuration..." -ForegroundColor Blue
+Write-Host "  Network URL:  $displayNetworkUrl" -ForegroundColor Cyan
+Write-Host "  External URL: $displayExternalUrl" -ForegroundColor Cyan
+Write-Host "  Generic URL:  $displayGenericUrl" -ForegroundColor Cyan
+Write-Host ""
 
 # Simple HTTP server using .NET HttpListener
 Add-Type -AssemblyName System.Net.Http
@@ -149,9 +156,14 @@ if (-not $started) {
     throw "Unable to start HTTP server; all candidate ports failed."
 }
 
-Write-Host "Server started successfully on http://$HostAddress`:$selectedPort/"
-Write-Host "Open your browser and go to: http://$HostAddress`:$selectedPort"
+Write-Host "Starting HTTP server on port $selectedPort" -ForegroundColor Green
 Write-Host ""
+Write-Host "Access the dashboard at:"
+Write-Host "  Network:   ${displayNetworkUrl}:$selectedPort" -ForegroundColor Green
+Write-Host "  External:  ${displayExternalUrl}:$selectedPort" -ForegroundColor Green
+Write-Host "  Local:     http://localhost:$selectedPort" -ForegroundColor Green
+Write-Host ""
+Write-Host "Server running (PID: $PID)" -ForegroundColor Cyan
 Write-Host "Press Enter to stop the server" -ForegroundColor Cyan
 
 # Script block for handling HTTP requests
@@ -231,6 +243,7 @@ try {
                     Write-Host ""
                     Write-Host "Shutting down server..." -ForegroundColor Yellow
                     $listener.Stop()
+                    Write-Host "Server stopped" -ForegroundColor Green
                     break
                 }
             }
@@ -249,7 +262,7 @@ try {
         }
     }
     
-    Write-Host "Server stopped" -ForegroundColor Green
+    Write-Host ""
 } catch {
     if ($_.Exception.Message -notlike "*stopped*" -and $_.Exception.Message -notlike "*closed*") {
         Write-Error "Server error: $($_.Exception.Message)"
