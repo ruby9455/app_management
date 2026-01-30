@@ -118,7 +118,7 @@ function Get-FreeTcpPort {
     return $port
 }
 
-$listener = [System.Net.HttpListener]::new()
+$listener = $null
 
 $selectedPort = $Port
 $candidatePorts = @($Port) + (1112..1125) + (Get-FreeTcpPort)
@@ -127,7 +127,8 @@ $candidatePorts = $candidatePorts | Select-Object -Unique
 $started = $false
 foreach ($p in $candidatePorts) {
     try {
-        $listener.Prefixes.Clear()
+        # Create a fresh listener for each attempt
+        $listener = [System.Net.HttpListener]::new()
         $listener.Prefixes.Add("http://$HostAddress`:$p/")
         $listener.Start()
         $selectedPort = $p
@@ -136,6 +137,10 @@ foreach ($p in $candidatePorts) {
     } catch {
         $msg = $_.Exception.Message
         Write-Warning "Failed to bind http://$HostAddress`:$p/ - $msg"
+        if ($null -ne $listener) {
+            try { $listener.Close() } catch { }
+            $listener = $null
+        }
         continue
     }
 }
