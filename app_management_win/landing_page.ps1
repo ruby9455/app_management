@@ -131,29 +131,53 @@ $selectedPort = $Port
 $candidatePorts = @($Port) + (1112..1125) + (Get-FreeTcpPort)
 $candidatePorts = $candidatePorts | Select-Object -Unique
 
+# Try binding to "+" (all interfaces) first, fall back to localhost if no admin rights
+$bindAddresses = @("+", "localhost")
+if ($HostAddress -ne "localhost") {
+    # User specified a custom address, try it first
+    $bindAddresses = @($HostAddress) + $bindAddresses
+}
+
 $started = $false
-foreach ($p in $candidatePorts) {
-    try {
-        # Create a fresh listener for each attempt
-        $listener = [System.Net.HttpListener]::new()
-        $listener.Prefixes.Add("http://$HostAddress`:$p/")
-        $listener.Start()
-        $selectedPort = $p
-        $started = $true
-        break
-    } catch {
-        $msg = $_.Exception.Message
-        Write-Warning "Failed to bind http://$HostAddress`:$p/ - $msg"
-        if ($null -ne $listener) {
-            try { $listener.Close() } catch { }
-            $listener = $null
+$actualBindAddress = $null
+foreach ($bindAddr in $bindAddresses) {
+    foreach ($p in $candidatePorts) {
+        try {
+            # Create a fresh listener for each attempt
+            $listener = [System.Net.HttpListener]::new()
+            $listener.Prefixes.Add("http://${bindAddr}:$p/")
+            $listener.Start()
+            $selectedPort = $p
+            $actualBindAddress = $bindAddr
+            $started = $true
+            break
+        } catch {
+            $msg = $_.Exception.Message
+            if ($bindAddr -eq "+") {
+                # Silently skip + binding failure (likely permission issue)
+            } else {
+                Write-Warning "Failed to bind http://${bindAddr}:$p/ - $msg"
+            }
+            if ($null -ne $listener) {
+                try { $listener.Close() } catch { }
+                $listener = $null
+            }
+            continue
         }
-        continue
     }
+    if ($started) { break }
 }
 
 if (-not $started) {
     throw "Unable to start HTTP server; all candidate ports failed."
+}
+
+# Warn if only localhost binding succeeded (network access won't work)
+if ($actualBindAddress -eq "localhost") {
+    Write-Host ""
+    Write-Warning "Server bound to localhost only. Network URLs will not work."
+    Write-Warning "To enable network access, run PowerShell as Administrator."
+    Write-Host ""
 }
 
 Write-Host "Starting HTTP server on port $selectedPort" -ForegroundColor Green
