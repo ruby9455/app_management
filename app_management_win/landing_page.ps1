@@ -151,45 +151,114 @@ if (-not $started) {
 
 Write-Host "Server started successfully on http://$HostAddress`:$selectedPort/"
 Write-Host "Open your browser and go to: http://$HostAddress`:$selectedPort"
+Write-Host ""
+Write-Host "Press Enter to stop the server" -ForegroundColor Cyan
 
-try {
-    while ($listener.IsListening) {
-        $context = $listener.GetContext()
-        $request = $context.Request
-        $response = $context.Response
+# Script block for handling HTTP requests
+$requestHandler = {
+    param($context, $htmlFilePath, $PSScriptRoot)
+    
+    $request = $context.Request
+    $response = $context.Response
+    
+    Write-Host "$(Get-Date -Format 'HH:mm:ss') - $($request.HttpMethod) $($request.Url.PathAndQuery)"
+    
+    if ($request.Url.PathAndQuery -eq "/" -or $request.Url.PathAndQuery -eq "/index.html") {
+        # Import modules for HTML generation
+        $modulesRoot = Join-Path $PSScriptRoot 'Modules'
+        Import-Module -Force -ErrorAction SilentlyContinue (Join-Path $modulesRoot 'Dashboard.psm1')
+        Import-Module -Force -ErrorAction SilentlyContinue (Join-Path $modulesRoot 'UrlHelpers.psm1')
         
-        Write-Host "$(Get-Date -Format 'HH:mm:ss') - $($request.HttpMethod) $($request.Url.PathAndQuery)"
-        
-        if ($request.Url.PathAndQuery -eq "/" -or $request.Url.PathAndQuery -eq "/index.html") {
-            # Generate fresh HTML on each request (enables refresh functionality)
-            $htmlContent = Get-DashboardHtml
+        # Load apps.json
+        $jsonFilePath = "$PSScriptRoot\apps.json"
+        if (Test-Path $jsonFilePath) {
+            $apps = Get-Content $jsonFilePath | ConvertFrom-Json
             
-            # Also save it to file for reference
-            $htmlContent | Out-File -FilePath $htmlFilePath -Encoding UTF8 -Force
+            $networkUrlPrefix = if (Get-Command -Name Get-NetworkUrlPrefix -ErrorAction SilentlyContinue) { 
+                Get-NetworkUrlPrefix 
+            } else { "http://localhost" }
             
-            # Serve the HTML
-            $response.ContentType = "text/html; charset=utf-8"
-            $response.StatusCode = 200
+            $externalUrlPrefix = if (Get-Command -Name Get-ExternalUrlPrefix -ErrorAction SilentlyContinue) { 
+                Get-ExternalUrlPrefix 
+            } else { "http://localhost" }
             
-            $buffer = [System.Text.Encoding]::UTF8.GetBytes($htmlContent)
-            $response.ContentLength64 = $buffer.Length
-            $response.OutputStream.Write($buffer, 0, $buffer.Length)
+            $genericUrlPrefix = if (Get-Command -Name Get-GenericUrlPrefix -ErrorAction SilentlyContinue) { 
+                Get-GenericUrlPrefix 
+            } else { "http://localhost" }
+            
+            $htmlContent = Dashboard\New-AppDashboardHtml -Apps $apps `
+                -NetworkUrlPrefix $networkUrlPrefix `
+                -ExternalUrlPrefix $externalUrlPrefix `
+                -GenericUrlPrefix $genericUrlPrefix
         } else {
-            # 404 for other paths
-            $response.StatusCode = 404
-            $response.ContentType = "text/plain"
-            $buffer = [System.Text.Encoding]::UTF8.GetBytes("404 - Not Found")
-            $response.ContentLength64 = $buffer.Length
-            $response.OutputStream.Write($buffer, 0, $buffer.Length)
+            $htmlContent = "<html><body><p>apps.json not found</p></body></html>"
         }
         
-        $response.OutputStream.Close()
+        # Save to file for reference
+        $htmlContent | Out-File -FilePath $htmlFilePath -Encoding UTF8 -Force
+        
+        # Serve the HTML
+        $response.ContentType = "text/html; charset=utf-8"
+        $response.StatusCode = 200
+        
+        $buffer = [System.Text.Encoding]::UTF8.GetBytes($htmlContent)
+        $response.ContentLength64 = $buffer.Length
+        $response.OutputStream.Write($buffer, 0, $buffer.Length)
+    } else {
+        # 404 for other paths
+        $response.StatusCode = 404
+        $response.ContentType = "text/plain"
+        $buffer = [System.Text.Encoding]::UTF8.GetBytes("404 - Not Found")
+        $response.ContentLength64 = $buffer.Length
+        $response.OutputStream.Write($buffer, 0, $buffer.Length)
     }
+    
+    $response.OutputStream.Close()
+}
+
+try {
+    # Use async pattern to allow checking for Enter key
+    while ($listener.IsListening) {
+        # Start async context retrieval
+        $contextTask = $listener.GetContextAsync()
+        
+        # Poll for Enter key or completed request
+        while (-not $contextTask.IsCompleted) {
+            # Check if Enter key was pressed (non-blocking)
+            if ([Console]::KeyAvailable) {
+                $key = [Console]::ReadKey($true)
+                if ($key.Key -eq [ConsoleKey]::Enter) {
+                    Write-Host ""
+                    Write-Host "Shutting down server..." -ForegroundColor Yellow
+                    $listener.Stop()
+                    break
+                }
+            }
+            Start-Sleep -Milliseconds 100
+        }
+        
+        # If listener stopped, exit loop
+        if (-not $listener.IsListening) {
+            break
+        }
+        
+        # Process the request if we have one
+        if ($contextTask.IsCompleted -and -not $contextTask.IsFaulted) {
+            $context = $contextTask.Result
+            & $requestHandler $context $htmlFilePath $PSScriptRoot
+        }
+    }
+    
+    Write-Host "Server stopped" -ForegroundColor Green
 } catch {
-    Write-Error "Server error: $($_.Exception.Message)"
-} finally {
-    if ($listener.IsListening) {
-        $listener.Stop()
+    if ($_.Exception.Message -notlike "*stopped*" -and $_.Exception.Message -notlike "*closed*") {
+        Write-Error "Server error: $($_.Exception.Message)"
     }
-    $listener.Close()
+} finally {
+    if ($null -ne $listener) {
+        if ($listener.IsListening) {
+            $listener.Stop()
+        }
+        $listener.Close()
+    }
 }
