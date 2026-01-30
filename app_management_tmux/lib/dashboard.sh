@@ -121,6 +121,7 @@ generate_dashboard_html() {
             white-space: nowrap;
         }
         .copy-btn:hover { background: #5568d3; }
+        .copy-btn:active { background: #4454b8; }
         .copy-btn.copied { background: #2ecc71; }
         .footer {
             background: #f8f9fa;
@@ -152,15 +153,58 @@ generate_dashboard_html() {
     </style>
     <script>
         function copyToClipboard(url, button) {
-            navigator.clipboard.writeText(url).then(() => {
-                const originalText = button.textContent;
-                button.textContent = '✓ Copied!';
-                button.classList.add('copied');
-                setTimeout(() => {
-                    button.textContent = originalText;
-                    button.classList.remove('copied');
-                }, 2000);
-            });
+            // Try modern clipboard API first (requires HTTPS or localhost)
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(url).then(() => {
+                    showCopySuccess(button);
+                }).catch(err => {
+                    console.error('Clipboard API failed:', err);
+                    fallbackCopy(url, button);
+                });
+            } else {
+                // Fallback for non-secure contexts (HTTP)
+                fallbackCopy(url, button);
+            }
+        }
+        
+        function fallbackCopy(url, button) {
+            const textArea = document.createElement('textarea');
+            textArea.value = url;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-9999px';
+            textArea.style.top = '-9999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showCopySuccess(button);
+                } else {
+                    showCopyFailed(button);
+                }
+            } catch (err) {
+                console.error('Fallback copy failed:', err);
+                showCopyFailed(button);
+            }
+            document.body.removeChild(textArea);
+        }
+        
+        function showCopySuccess(button) {
+            const originalText = button.textContent;
+            button.textContent = '✓ Copied!';
+            button.classList.add('copied');
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.classList.remove('copied');
+            }, 2000);
+        }
+        
+        function showCopyFailed(button) {
+            button.textContent = '✗ Failed';
+            setTimeout(() => {
+                button.textContent = '📋 Copy';
+            }, 2000);
         }
     </script>
 </head>
