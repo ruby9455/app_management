@@ -22,11 +22,15 @@ NC='\033[0m'
 
 # Track Python PID for cleanup
 PYTHON_PID=""
+CLEANUP_DONE=false
 
 # Cleanup function to kill Python server
 cleanup() {
-    # Restore terminal settings
-    stty sane 2>/dev/null || true
+    # Prevent running cleanup twice
+    if [[ "$CLEANUP_DONE" == "true" ]]; then
+        return
+    fi
+    CLEANUP_DONE=true
     
     echo ""
     echo -e "${YELLOW}Shutting down server...${NC}"
@@ -46,11 +50,10 @@ cleanup() {
     done
     
     echo -e "${GREEN}Server stopped${NC}"
-    exit 0
 }
 
-# Trap SIGTERM for cleanup
-trap cleanup SIGTERM EXIT
+# Trap signals for cleanup (not EXIT to avoid double cleanup)
+trap cleanup SIGTERM SIGINT
 
 # Source helper libraries
 source "$SCRIPT_DIR/lib/config.sh"
@@ -210,13 +213,27 @@ PYTHON_EOF
     # Capture the PID of the background Python process
     PYTHON_PID=$!
     
-    # Simple approach: just wait for Enter key or any input to stop
     echo -e "${CYAN}Server running (PID: $PYTHON_PID)${NC}"
-    echo -e "${CYAN}Press Enter to stop, or use: ${NC}${YELLOW}pkill -P $$${NC}"
-    read -r
     
-    # User pressed Enter, trigger cleanup
-    cleanup
+    # Check if we have an interactive TTY
+    if [[ -t 0 ]]; then
+        # Interactive mode - wait for Enter to stop
+        echo -e "${CYAN}Press Enter to stop the server${NC}"
+        read -r
+        cleanup
+    else
+        # Non-interactive mode (e.g., SSH command) - run as daemon
+        echo -e "${CYAN}Running in background mode (no TTY detected)${NC}"
+        echo -e "${CYAN}To stop the server, run:${NC} ${YELLOW}kill $PYTHON_PID${NC}"
+        echo -e "${CYAN}Or run:${NC} ${YELLOW}fuser -k ${PORT}/tcp${NC}"
+        
+        # Disown the process so it continues after script exits
+        disown $PYTHON_PID
+        
+        # Clear the trap so we don't kill the server on exit
+        trap - SIGTERM SIGINT
+        PYTHON_PID=""
+    fi
 else
     # Fallback to bash/nc approach
     echo -e "${YELLOW}Python3 not found, using netcat for HTTP server${NC}"
