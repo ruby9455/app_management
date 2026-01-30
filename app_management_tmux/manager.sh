@@ -855,10 +855,20 @@ delete_app() {
     fi
 }
 
+# Display network configuration URLs
+display_network_urls() {
+    echo ""
+    echo -e "${CYAN}Detecting network configuration...${NC}"
+    echo "  Network URL:  $NETWORK_URL"
+    echo "  External URL: $EXTERNAL_URL"
+    echo "  Generic URL:  $GENERIC_URL"
+}
+
 # Interactive menu
 interactive_menu() {
     while true; do
         load_apps_json
+        display_network_urls
         display_apps
         
         echo ""
