@@ -13,11 +13,36 @@ The port to host the web server on. Default is 1111.
 .PARAMETER HostAddress
 The host address to bind to. Default is localhost.
 
-.EXAMPLE
-./generate_landing_page.ps1
+.NOTES
+NETWORK ACCESS (Admin vs Normal User):
+
+Windows HttpListener has security restrictions on URL bindings:
+
+  - WITHOUT ADMIN: Can only bind to "localhost" or "127.0.0.1". Other users on the 
+    network cannot access the dashboard via your IP or computer name.
+
+  - WITH ADMIN: Can bind to "+" (all interfaces), allowing access via Network URL,
+    External URL, and computer name from other machines.
+
+The script automatically tries to bind to "+" first, then falls back to "localhost"
+with a warning if admin privileges are not available.
+
+ONE-TIME WORKAROUND (no admin needed after setup):
+Run this command ONCE as Administrator to permanently allow your user to host on port 1111:
+
+    netsh http add urlacl url=http://+:1111/ user=DOMAIN\username
+
+Replace DOMAIN\username with your actual username (e.g., SAH0223908\rchan09).
+
+To remove the reservation later:
+
+    netsh http delete urlacl url=http://+:1111/
 
 .EXAMPLE
-./generate_landing_page.ps1 -Port 8080 -HostAddress "0.0.0.0"
+./landing_page.ps1
+
+.EXAMPLE
+./landing_page.ps1 -Port 8080
 #>
 
 [CmdletBinding()]
