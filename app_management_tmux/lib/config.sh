@@ -15,6 +15,11 @@ EXTERNAL_IP_TIMEOUT_SEC=5
 # tmux session name for all apps
 TMUX_SESSION_NAME="app_manager"
 
+# Landing page configuration
+LANDING_PAGE_ENABLED=true          # Set to false to disable auto-start
+LANDING_PAGE_PORT=1111             # Default port for landing page
+LANDING_PAGE_WINDOW_NAME="_Dashboard"
+
 # Get the apps.json file path
 # Usage: get_apps_json_path "/path/to/script/dir"
 get_apps_json_path() {

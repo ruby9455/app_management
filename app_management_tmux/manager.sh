@@ -36,6 +36,7 @@ DRY_RUN=false
 AUTO_START=false
 START_ALL=false
 ATTACH_MODE=false
+SKIP_LANDING_PAGE=false
 
 usage() {
     cat << EOF
@@ -48,6 +49,7 @@ OPTIONS:
     -A, --all           Start all apps
     -d, --dry-run       Show what would be executed without running
     -t, --attach        Attach to the tmux session
+    -L, --no-landing    Skip auto-starting the landing page dashboard
     -h, --help          Show this help message
 
 EXAMPLES:
@@ -56,6 +58,7 @@ EXAMPLES:
     $(basename "$0") --all              # Start all apps
     $(basename "$0") --dry-run --all    # Preview what would run
     $(basename "$0") --attach           # Attach to tmux session
+    $(basename "$0") --no-landing       # Start without dashboard
 
 INTERACTIVE COMMANDS:
     [number(s)]   Start app(s) by index (e.g., 1,2,3)
@@ -65,9 +68,14 @@ INTERACTIVE COMMANDS:
     a             Add a new app
     e [num]       Edit by index
     d [num]       Delete by index
+    D             Toggle landing page dashboard
     l             List tmux windows
     t             Attach to tmux session
     q             Quit
+
+DASHBOARD:
+    The landing page dashboard runs automatically on port $LANDING_PAGE_PORT.
+    Use -L/--no-landing to skip auto-start, or set LANDING_PAGE_ENABLED=false in config.sh.
 
 EOF
     exit 0
@@ -92,6 +100,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -t|--attach)
             ATTACH_MODE=true
+            shift
+            ;;
+        -L|--no-landing)
+            SKIP_LANDING_PAGE=true
             shift
             ;;
         -h|--help)
@@ -165,6 +177,94 @@ load_apps_json() {
     fi
     
     echo -e "${GREEN}Found $APP_COUNT supported apps${NC}"
+}
+
+# Start the landing page dashboard as a tmux window
+start_landing_page() {
+    if $SKIP_LANDING_PAGE || [[ "$LANDING_PAGE_ENABLED" != "true" ]]; then
+        return 0
+    fi
+    
+    local window_name="$LANDING_PAGE_WINDOW_NAME"
+    local sanitized_name=$(sanitize_window_name "$window_name")
+    
+    # Check if already running
+    if tmux_window_exists "$window_name"; then
+        echo -e "${CYAN}Dashboard already running${NC}"
+        return 0
+    fi
+    
+    # Also check if port is in use
+    if is_port_in_use "$LANDING_PAGE_PORT"; then
+        echo -e "${CYAN}Dashboard port $LANDING_PAGE_PORT already in use${NC}"
+        return 0
+    fi
+    
+    if $DRY_RUN; then
+        echo -e "${YELLOW}[DRY RUN] Would start landing page dashboard on port $LANDING_PAGE_PORT${NC}"
+        return 0
+    fi
+    
+    echo -e "${GREEN}Starting landing page dashboard on port $LANDING_PAGE_PORT...${NC}"
+    
+    ensure_tmux_session
+    
+    # Start landing_page.sh in its own tmux window
+    local landing_script="$SCRIPT_DIR/landing_page.sh"
+    
+    if [[ ! -x "$landing_script" ]]; then
+        echo -e "${YELLOW}Warning: landing_page.sh not found or not executable${NC}"
+        return 1
+    fi
+    
+    tmux new-window -t "$TMUX_SESSION_NAME" -n "$sanitized_name" -c "$SCRIPT_DIR" \
+        bash -c "echo '=== Starting: Dashboard ==='; '$landing_script' '$LANDING_PAGE_PORT'; ret=\$?; echo ''; echo '=== Dashboard exited with code '\$ret' ==='; echo 'Press Enter to close this window...'; read"
+    
+    # Remove placeholder window if it exists
+    tmux kill-window -t "$TMUX_SESSION_NAME:_placeholder" 2>/dev/null || true
+    
+    echo -e "${GREEN}Dashboard running at http://localhost:$LANDING_PAGE_PORT${NC}"
+}
+
+# Stop the landing page dashboard
+stop_landing_page() {
+    local window_name="$LANDING_PAGE_WINDOW_NAME"
+    local stopped=false
+    
+    if $DRY_RUN; then
+        echo -e "${YELLOW}[DRY RUN] Would stop landing page dashboard${NC}"
+        return 0
+    fi
+    
+    # Stop tmux window if it exists (this gracefully stops the process)
+    if tmux_window_exists "$window_name"; then
+        echo -e "${CYAN}Stopping landing page dashboard...${NC}"
+        tmux_stop_app "$window_name"
+        stopped=true
+        # Give it a moment to release the port
+        sleep 2
+    fi
+    
+    # Only kill port if tmux window didn't exist but port is still in use
+    # This handles orphaned processes, but avoids killing if tmux handled it
+    if ! $stopped && is_port_in_use "$LANDING_PAGE_PORT"; then
+        echo -e "${CYAN}Killing orphaned process on port $LANDING_PAGE_PORT...${NC}"
+        # Use a gentler approach - only SIGTERM, no SIGKILL
+        local pids=$(get_pids_on_port "$LANDING_PAGE_PORT")
+        if [[ -n "$pids" ]]; then
+            echo "$pids" | xargs -r kill 2>/dev/null || true
+        fi
+        stopped=true
+    fi
+    
+    if $stopped; then
+        echo -e "${GREEN}Dashboard stopped${NC}"
+    fi
+}
+
+# Check if landing page is running
+is_landing_page_running() {
+    tmux_window_exists "$LANDING_PAGE_WINDOW_NAME" || is_port_in_use "$LANDING_PAGE_PORT"
 }
 
 # Check if an app is running (by port or tmux window)
@@ -862,6 +962,13 @@ display_network_urls() {
     echo "  Network URL:  $NETWORK_URL"
     echo "  External URL: $EXTERNAL_URL"
     echo "  Generic URL:  $GENERIC_URL"
+    
+    # Show dashboard status
+    if is_landing_page_running; then
+        echo -e "  ${GREEN}Dashboard:${NC}    http://localhost:$LANDING_PAGE_PORT ${GREEN}(running)${NC}"
+    else
+        echo -e "  ${YELLOW}Dashboard:${NC}    Not running (press D to start)"
+    fi
 }
 
 # Interactive menu
@@ -884,6 +991,7 @@ interactive_menu() {
         echo "  p           - Add a new process (custom command)"
         echo "  e [num]     - Edit by index"
         echo "  d [num]     - Delete app by index"
+        echo "  D           - Toggle dashboard (start/stop)"
         echo "  l           - List tmux windows"
         echo "  t           - Attach to tmux session"
         echo "  R           - Refresh list"
@@ -892,28 +1000,39 @@ interactive_menu() {
         
         read -r -p "Enter selection: " input
         
+        # Handle case-sensitive commands first (before lowercasing)
+        case "$input" in
+            S)
+                # Capital S - stop all
+                stop_all_apps || true
+                echo ""
+                echo "Press Enter to continue..."
+                read -r
+                continue
+                ;;
+            D)
+                # Capital D - toggle dashboard
+                if is_landing_page_running; then
+                    stop_landing_page
+                else
+                    SKIP_LANDING_PAGE=false
+                    start_landing_page
+                fi
+                echo ""
+                echo "Press Enter to continue..."
+                read -r
+                continue
+                ;;
+            R)
+                # Capital R - refresh
+                continue
+                ;;
+        esac
+        
         case "${input,,}" in
             q|quit|exit)
                 echo "Goodbye!"
                 exit 0
-                ;;
-            r|R|refresh)
-                if [[ "$input" == "R" ]]; then
-                    continue
-                fi
-                # r with number means restart
-                if [[ "$input" =~ ^r\ +([0-9]+)$ ]]; then
-                    local restart_target="${BASH_REMATCH[1]}"
-                    local idx=$((restart_target - 1))
-                    local app_json=$(echo "$APPS_JSON" | jq ".[$idx] // empty")
-                    if [[ -n "$app_json" && "$app_json" != "null" ]]; then
-                        restart_app "$app_json"
-                    else
-                        echo -e "${RED}Invalid index: $restart_target${NC}"
-                    fi
-                else
-                    continue
-                fi
                 ;;
             a|add)
                 add_new_app
@@ -932,10 +1051,6 @@ interactive_menu() {
             s)
                 # Just 's' alone - show usage
                 echo -e "${YELLOW}Usage: s <number> to stop an app${NC}"
-                ;;
-            "S")
-                # Capital S - stop all
-                stop_all_apps || true
                 ;;
             e\ *|e[0-9]*)
                 # Edit command
@@ -1040,6 +1155,17 @@ main() {
     echo ""
     
     load_apps_json
+    
+    # Handle landing page dashboard
+    if $SKIP_LANDING_PAGE; then
+        # Stop any existing dashboard if --no-landing was specified
+        if is_landing_page_running; then
+            stop_landing_page
+        fi
+    elif [[ "$LANDING_PAGE_ENABLED" == "true" ]]; then
+        # Auto-start landing page dashboard if enabled
+        start_landing_page
+    fi
     
     if $AUTO_START; then
         if $START_ALL; then
