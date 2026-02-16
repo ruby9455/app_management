@@ -294,7 +294,7 @@ display_apps() {
     local index=1
     echo "$APPS_JSON" | jq -c '.[]' | while IFS= read -r app; do
         local name=$(echo "$app" | jq -r '.Name // "Unknown"')
-        local app_type=$(echo "$app" | jq -r '.Type // "Unknown"')
+        local app_type=$(echo "$app" | jq -r 'if (.Type == null or .Type == "") and (.CustomCommand != null and .CustomCommand != "") then "Process" else (.Type // "Unknown") end')
         local port=$(echo "$app" | jq -r '.Port // "N/A"')
         
         local status="stopped"
@@ -994,6 +994,7 @@ interactive_menu() {
         echo "  D           - Toggle dashboard (start/stop)"
         echo "  l           - List tmux windows"
         echo "  t           - Attach to tmux session"
+        echo "  t [num]     - Attach and switch to app window"
         echo "  R           - Refresh list"
         echo "  q           - Quit"
         echo ""
@@ -1042,6 +1043,30 @@ interactive_menu() {
                 ;;
             l|list)
                 tmux_list_windows || true
+                ;;
+            t\ *|t[0-9]*)
+                # Attach and switch to app window by index
+                local attach_target="${input#t }"
+                attach_target="${attach_target#t}"
+                if [[ "$attach_target" =~ ^[0-9]+$ ]]; then
+                    local idx=$((attach_target - 1))
+                    local app_json=$(echo "$APPS_JSON" | jq ".[$idx] // empty")
+                    if [[ -n "$app_json" && "$app_json" != "null" ]]; then
+                        local app_name=$(echo "$app_json" | jq -r '.Name')
+                        if tmux_window_exists "$app_name"; then
+                            tmux_select_window "$app_name" || true
+                            echo -e "${CYAN}Attaching to tmux session... (Ctrl+B, D to detach)${NC}"
+                            sleep 1
+                            tmux_attach || echo -e "${YELLOW}No tmux session to attach to${NC}"
+                        else
+                            echo -e "${YELLOW}Window for '$app_name' is not running${NC}"
+                        fi
+                    else
+                        echo -e "${RED}Invalid index: $attach_target${NC}"
+                    fi
+                else
+                    echo -e "${YELLOW}Usage: t <number>${NC}"
+                fi
                 ;;
             t|attach)
                 echo -e "${CYAN}Attaching to tmux session... (Ctrl+B, D to detach)${NC}"
