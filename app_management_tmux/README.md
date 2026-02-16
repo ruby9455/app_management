@@ -77,8 +77,8 @@ Commands:
   s [num]       - Stop app by index (0 for all)
   r [num]       - Restart app by index (0 for all)
   u [num]       - Update app from repo (0 for all)
-  a             - Add a new app
-  p             - Add a new process (custom command)
+  aa            - Add a new app
+  ap            - Add a new process (custom command)
   e [num]       - Edit app by index
   d [num]       - Delete app by index
   D             - Toggle dashboard (start/stop)

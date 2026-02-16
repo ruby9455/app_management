@@ -66,8 +66,8 @@ INTERACTIVE COMMANDS:
     s [num]       Stop app by index (0 for all)
     r [num]       Restart app by index (0 for all)
     u [num]       Update app from repo (0 for all)
-    a             Add a new app
-    p             Add a new process (custom command)
+    aa            Add a new app
+    ap            Add a new process (custom command)
     e [num]       Edit by index
     d [num]       Delete app by index
     D             Toggle landing page dashboard
@@ -997,8 +997,8 @@ interactive_menu() {
         echo "  s [num]     - Stop app by index (0 for all)"
         echo "  r [num]     - Restart app by index (0 for all)"
         echo "  u [num]     - Update app from repo (0 for all)"
-        echo "  a           - Add a new app"
-        echo "  p           - Add a new process (custom command)"
+        echo "  aa          - Add a new app"
+        echo "  ap          - Add a new process (custom command)"
         echo "  e [num]     - Edit by index"
         echo "  d [num]     - Delete app by index"
         echo "  D           - Toggle dashboard (start/stop)"
@@ -1037,10 +1037,10 @@ interactive_menu() {
                 echo "Goodbye!"
                 exit 0
                 ;;
-            a|add)
+            aa|add)
                 add_new_app
                 ;;
-            p|process)
+            ap|process)
                 add_new_process
                 ;;
             l|list)
