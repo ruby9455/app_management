@@ -61,21 +61,26 @@ EXAMPLES:
     $(basename "$0") --no-landing       # Start without dashboard
 
 INTERACTIVE COMMANDS:
-    [number(s)]   Start app(s) by index (e.g., 1,2,3) (0 for all)
-    [name]        Start app by name
-    s [num]       Stop app by index (0 for all)
-    r [num]       Restart app by index (0 for all)
-    u [num]       Update app from repo (0 for all)
-    aa            Add a new app
-    ap            Add a new process (custom command)
-    e [num]       Edit by index
-    d [num]       Delete app by index
-    D             Toggle landing page dashboard
-    l             List tmux windows
-    t             Attach to tmux session
-    t [num]       Attach and switch to app window
-    R             Refresh list
-    q             Quit
+    Dashboard:
+        D           Toggle landing page dashboard
+    Manage apps:
+        [number(s)] Start app(s) by index (e.g., 1,2,3) (0 for all)
+        [name]      Start app by name
+        s [num]     Stop app by index (0 for all)
+        r [num]     Restart app by index (0 for all)
+        u [num]     Update app from repo (0 for all)
+    Edit apps.json:
+        aa          Add a new app
+        ap          Add a new process (custom command)
+        e [num]     Edit by index
+        d [num]     Delete app by index
+    Tmux:
+        l           List tmux windows
+        t           Attach to tmux session
+        t [num]     Attach and switch to app window
+    Other:
+        R           Refresh list
+        q           Quit
 
 DASHBOARD:
     The landing page dashboard runs automatically on port $LANDING_PAGE_PORT.
@@ -992,21 +997,26 @@ interactive_menu() {
         
         echo ""
         echo -e "${CYAN}Commands:${NC}"
-        echo "  [number(s)] - Start app(s) by index (e.g., 1,2,3) (0 for all)"
-        echo "  [name]      - Start app by name"
-        echo "  s [num]     - Stop app by index (0 for all)"
-        echo "  r [num]     - Restart app by index (0 for all)"
-        echo "  u [num]     - Update app from repo (0 for all)"
-        echo "  aa          - Add a new app"
-        echo "  ap          - Add a new process (custom command)"
-        echo "  e [num]     - Edit by index"
-        echo "  d [num]     - Delete app by index"
-        echo "  D           - Toggle dashboard (start/stop)"
-        echo "  l           - List tmux windows"
-        echo "  t           - Attach to tmux session"
-        echo "  t [num]     - Attach and switch to app window"
-        echo "  R           - Refresh list"
-        echo "  q           - Quit"
+        echo "  Dashboard"
+        echo "    D         - Toggle dashboard (start/stop)"
+        echo "  Manage apps"
+        echo "    [number(s)] - Start app(s) by index (e.g., 1,2,3) (0 for all)"
+        echo "    [name]      - Start app by name"
+        echo "    s [num]     - Stop app by index (0 for all)"
+        echo "    r [num]     - Restart app by index (0 for all)"
+        echo "    u [num]     - Update app from repo (0 for all)"
+        echo "  Edit apps.json"
+        echo "    aa          - Add a new app"
+        echo "    ap          - Add a new process (custom command)"
+        echo "    e [num]     - Edit by index"
+        echo "    d [num]     - Delete app by index"
+        echo "  Tmux"
+        echo "    l           - List tmux windows"
+        echo "    t           - Attach to tmux session"
+        echo "    t [num]     - Attach and switch to app window"
+        echo "  Other"
+        echo "    R           - Refresh list"
+        echo "    q           - Quit"
         echo ""
         
         read -r -p "Enter selection: " input

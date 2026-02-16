@@ -72,19 +72,24 @@ brew install tmux jq
 ### Inside the Interactive Menu
 ```
 Commands:
+Dashboard:
+  D             - Toggle dashboard (start/stop)
+Manage apps:
   [number(s)]   - Start app(s) by index (e.g., 1,2,3) (0 for all)
   [name]        - Start app by name
   s [num]       - Stop app by index (0 for all)
   r [num]       - Restart app by index (0 for all)
   u [num]       - Update app from repo (0 for all)
+Edit apps.json:
   aa            - Add a new app
   ap            - Add a new process (custom command)
   e [num]       - Edit app by index
   d [num]       - Delete app by index
-  D             - Toggle dashboard (start/stop)
+Tmux:
   l             - List tmux windows (running apps)
   t             - Attach to tmux session
   t [num]       - Attach and switch to app window
+Other:
   R             - Refresh list
   q             - Quit
 ```
