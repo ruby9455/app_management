@@ -281,7 +281,7 @@ print_app_info() {
 # Print table header
 print_table_header() {
     echo -e "${PURPLE}────┬────────────────────────────────┬────────────┬────────┬──────────${NC}"
-    printf "${PURPLE} # │ %-30s │ %-10s │ %-6s │ Status${NC}\n" "Name" "Type" "Port"
+    printf "${PURPLE}  # │ %-30s │ %-10s │ %-6s │ Status${NC}\n" "Name" "Type" "Port"
     echo -e "${PURPLE}────┼────────────────────────────────┼────────────┼────────┼──────────${NC}"
 }
 
