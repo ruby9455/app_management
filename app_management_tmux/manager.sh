@@ -61,11 +61,10 @@ EXAMPLES:
     $(basename "$0") --no-landing       # Start without dashboard
 
 INTERACTIVE COMMANDS:
-    [number(s)]   Start app(s) by index (e.g., 1,2,3)
+    [number(s)]   Start app(s) by index (e.g., 1,2,3) (0 for all)
     [name]        Start app by name
-    0 or all      Start all apps
     s [num]       Stop app by index (0 for all)
-    r [num]       Restart app by index
+    r [num]       Restart app by index (0 for all)
     u [num]       Update app from repo (0 for all)
     a             Add a new app
     p             Add a new process (custom command)
@@ -553,8 +552,8 @@ update_app() {
 start_selected_apps() {
     local selection="$1"
     
-    # Handle "all" or "0"
-    if [[ "$selection" == "0" || "${selection,,}" == "all" ]]; then
+    # Handle "0" for all apps
+    if [[ "$selection" == "0" ]]; then
         echo "$APPS_JSON" | jq -c '.[]' | while IFS= read -r app; do
             start_app "$app"
             sleep 0.5  # Small delay between launches
@@ -568,6 +567,14 @@ start_selected_apps() {
     for item in "${items[@]}"; do
         item=$(echo "$item" | xargs)  # Trim whitespace
         [[ -z "$item" ]] && continue
+        
+        if [[ "$item" == "0" ]]; then
+            echo "$APPS_JSON" | jq -c '.[]' | while IFS= read -r app; do
+                start_app "$app"
+                sleep 0.5
+            done
+            return
+        fi
         
         local app_json=""
         
@@ -985,11 +992,10 @@ interactive_menu() {
         
         echo ""
         echo -e "${CYAN}Commands:${NC}"
-        echo "  [number(s)] - Start app(s) by index (e.g., 1,2,3)"
+        echo "  [number(s)] - Start app(s) by index (e.g., 1,2,3) (0 for all)"
         echo "  [name]      - Start app by name"
-        echo "  0 or all    - Start all apps"
         echo "  s [num]     - Stop app by index (0 for all)"
-        echo "  r [num]     - Restart app by index"
+        echo "  r [num]     - Restart app by index (0 for all)"
         echo "  u [num]     - Update app from repo (0 for all)"
         echo "  a           - Add a new app"
         echo "  p           - Add a new process (custom command)"
@@ -1089,7 +1095,7 @@ interactive_menu() {
                 # Stop command
                 local stop_target="${input#s }"
                 stop_target="${stop_target#s}"
-                if [[ "$stop_target" == "0" || "${stop_target,,}" == "all" ]]; then
+                if [[ "$stop_target" == "0" ]]; then
                     stop_all_apps || true
                 elif [[ "$stop_target" =~ ^[0-9]+$ ]]; then
                     local idx=$((stop_target - 1))
@@ -1107,7 +1113,12 @@ interactive_menu() {
                 # Restart command
                 local restart_target="${input#r }"
                 restart_target="${restart_target#r}"
-                if [[ "$restart_target" =~ ^[0-9]+$ ]]; then
+                if [[ "$restart_target" == "0" ]]; then
+                    echo -e "${CYAN}Restarting all apps...${NC}"
+                    echo "$APPS_JSON" | jq -c '.[]' | while IFS= read -r app; do
+                        restart_app "$app" || true
+                    done
+                elif [[ "$restart_target" =~ ^[0-9]+$ ]]; then
                     local idx=$((restart_target - 1))
                     local app_json=$(echo "$APPS_JSON" | jq ".[$idx] // empty")
                     if [[ -n "$app_json" && "$app_json" != "null" ]]; then
@@ -1116,7 +1127,7 @@ interactive_menu() {
                         echo -e "${RED}Invalid index: $restart_target${NC}"
                     fi
                 else
-                    echo -e "${YELLOW}Usage: r <number>${NC}"
+                    echo -e "${YELLOW}Usage: r <number> (0 for all)${NC}"
                 fi
                 ;;
             u\ *|u[0-9]*|u0)
@@ -1193,7 +1204,7 @@ main() {
     if $AUTO_START; then
         if $START_ALL; then
             echo -e "${CYAN}Starting all apps...${NC}"
-            start_selected_apps "all"
+            start_selected_apps "0"
         elif [[ -n "$APP_NAME" ]]; then
             echo -e "${CYAN}Starting app: $APP_NAME${NC}"
             start_selected_apps "$APP_NAME"

@@ -72,11 +72,10 @@ brew install tmux jq
 ### Inside the Interactive Menu
 ```
 Commands:
-  [number(s)]   - Start app(s) by index (e.g., 1,2,3)
+  [number(s)]   - Start app(s) by index (e.g., 1,2,3) (0 for all)
   [name]        - Start app by name
-  0 or all      - Start all apps
   s [num]       - Stop app by index (0 for all)
-  r [num]       - Restart app by index
+  r [num]       - Restart app by index (0 for all)
   u [num]       - Update app from repo (0 for all)
   a             - Add a new app
   p             - Add a new process (custom command)
