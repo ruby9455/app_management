@@ -62,15 +62,20 @@ EXAMPLES:
 
 INTERACTIVE COMMANDS:
     [number(s)]   Start app(s) by index (e.g., 1,2,3)
-    s [num]       Stop app by index
-    S             Stop all running apps
+    [name]        Start app by name
+    0 or all      Start all apps
+    s [num]       Stop app by index (0 for all)
     r [num]       Restart app by index
+    u [num]       Update app from repo (0 for all)
     a             Add a new app
+    p             Add a new process (custom command)
     e [num]       Edit by index
-    d [num]       Delete by index
+    d [num]       Delete app by index
     D             Toggle landing page dashboard
     l             List tmux windows
     t             Attach to tmux session
+    t [num]       Attach and switch to app window
+    R             Refresh list
     q             Quit
 
 DASHBOARD:
@@ -983,8 +988,7 @@ interactive_menu() {
         echo "  [number(s)] - Start app(s) by index (e.g., 1,2,3)"
         echo "  [name]      - Start app by name"
         echo "  0 or all    - Start all apps"
-        echo "  s [num]     - Stop app by index"
-        echo "  S           - Stop all running apps"
+        echo "  s [num]     - Stop app by index (0 for all)"
         echo "  r [num]     - Restart app by index"
         echo "  u [num]     - Update app from repo (0 for all)"
         echo "  a           - Add a new app"
@@ -1003,14 +1007,6 @@ interactive_menu() {
         
         # Handle case-sensitive commands first (before lowercasing)
         case "$input" in
-            S)
-                # Capital S - stop all
-                stop_all_apps || true
-                echo ""
-                echo "Press Enter to continue..."
-                read -r
-                continue
-                ;;
             D)
                 # Capital D - toggle dashboard
                 if is_landing_page_running; then
@@ -1075,7 +1071,7 @@ interactive_menu() {
                 ;;
             s)
                 # Just 's' alone - show usage
-                echo -e "${YELLOW}Usage: s <number> to stop an app${NC}"
+                echo -e "${YELLOW}Usage: s <number> (0 for all)${NC}"
                 ;;
             e\ *|e[0-9]*)
                 # Edit command
@@ -1093,7 +1089,9 @@ interactive_menu() {
                 # Stop command
                 local stop_target="${input#s }"
                 stop_target="${stop_target#s}"
-                if [[ "$stop_target" =~ ^[0-9]+$ ]]; then
+                if [[ "$stop_target" == "0" || "${stop_target,,}" == "all" ]]; then
+                    stop_all_apps || true
+                elif [[ "$stop_target" =~ ^[0-9]+$ ]]; then
                     local idx=$((stop_target - 1))
                     local app_json=$(echo "$APPS_JSON" | jq ".[$idx] // empty")
                     if [[ -n "$app_json" && "$app_json" != "null" ]]; then
@@ -1102,7 +1100,7 @@ interactive_menu() {
                         echo -e "${RED}Invalid index: $stop_target${NC}"
                     fi
                 else
-                    echo -e "${YELLOW}Usage: s <number>${NC}"
+                    echo -e "${YELLOW}Usage: s <number> (0 for all)${NC}"
                 fi
                 ;;
             r\ *|r[0-9]*)

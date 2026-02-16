@@ -75,14 +75,17 @@ Commands:
   [number(s)]   - Start app(s) by index (e.g., 1,2,3)
   [name]        - Start app by name
   0 or all      - Start all apps
-  s [num]       - Stop app by index
-  S             - Stop all running apps
+  s [num]       - Stop app by index (0 for all)
   r [num]       - Restart app by index
+  u [num]       - Update app from repo (0 for all)
   a             - Add a new app
+  p             - Add a new process (custom command)
   e [num]       - Edit app by index
   d [num]       - Delete app by index
+  D             - Toggle dashboard (start/stop)
   l             - List tmux windows (running apps)
   t             - Attach to tmux session
+  t [num]       - Attach and switch to app window
   R             - Refresh list
   q             - Quit
 ```
