@@ -86,3 +86,27 @@ build_app_url() {
     
     echo "$url"
 }
+
+# Get the correct access URL for an app, accounting for nginx reverse proxy.
+# Apps with "NginxPath" set are served via nginx at base_url/nginx_path/ (no port).
+# Apps without "NginxPath" are served directly at base_url:port.
+# Usage: get_app_access_url "$app_json" "$base_url"
+# Example: get_app_access_url "$app" "http://10.17.62.155"
+get_app_access_url() {
+    local app_json="$1"
+    local base_url="$2"
+    local nginx_path=$(echo "$app_json" | jq -r '.NginxPath // empty')
+    local port=$(echo "$app_json" | jq -r '.Port // empty')
+    local base_path=$(echo "$app_json" | jq -r '.BasePath // empty')
+
+    if [[ -n "$nginx_path" ]]; then
+        echo "${base_url}/${nginx_path}/"
+    else
+        local url="${base_url}:${port}"
+        if [[ -n "$base_path" ]]; then
+            base_path="${base_path#/}"
+            url="${url}/${base_path}"
+        fi
+        echo "$url"
+    fi
+}

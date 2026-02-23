@@ -226,6 +226,7 @@ HEADER_HTML
         local app_type=$(echo "$app" | jq -r '.Type // "Unknown"')
         local port=$(echo "$app" | jq -r '.Port')
         local base_path=$(echo "$app" | jq -r '.BasePath // ""')
+        local nginx_path=$(echo "$app" | jq -r '.NginxPath // ""')
         
         local type_class=$(echo "$app_type" | tr '[:upper:]' '[:lower:]')
         
@@ -240,13 +241,19 @@ HEADER_HTML
             status_text="Running"
         fi
         
-        # Build URLs
-        local path_suffix=""
-        [[ -n "$base_path" ]] && path_suffix="/${base_path#/}"
-        
-        local localhost_url="http://localhost:${port}${path_suffix}"
-        local network_app_url="${network_url}:${port}${path_suffix}"
-        local external_app_url="${external_url}:${port}${path_suffix}"
+        # Build URLs — nginx-proxied apps use path-based URL (no port)
+        local localhost_url network_app_url external_app_url
+        if [[ -n "$nginx_path" ]]; then
+            localhost_url="http://localhost/${nginx_path}/"
+            network_app_url="${network_url}/${nginx_path}/"
+            external_app_url="${external_url}/${nginx_path}/"
+        else
+            local path_suffix=""
+            [[ -n "$base_path" ]] && path_suffix="/${base_path#/}"
+            localhost_url="http://localhost:${port}${path_suffix}"
+            network_app_url="${network_url}:${port}${path_suffix}"
+            external_app_url="${external_url}:${port}${path_suffix}"
+        fi
         
         cat << EOF
             <div class="app-card">

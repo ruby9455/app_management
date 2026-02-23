@@ -194,9 +194,9 @@ build_app_run_command() {
         *)
             # Type-agnostic CustomCommand support (no Type required)
             if [[ -n "$custom_command" ]]; then
-                # Check if custom_command looks like a full command (starts with python, uv, etc.)
-                # or if it's just a Django management command name
-                if [[ "$custom_command" =~ ^(python|uv|pip|bash|sh|\./) ]]; then
+                # Check if custom_command looks like a full command (starts with python, uv, etc.,
+                # or is a path containing '/') or if it's just a Django management command name
+                if [[ "$custom_command" =~ ^(python|uv|pip|bash|sh|\./|[^/[:space:]]*/[^[:space:]]*) ]]; then
                     # Full command - run as-is
                     if [[ "$pkg_manager" == "uv" && ! "$custom_command" =~ ^uv ]]; then
                         run_cmd="uv run $custom_command"
