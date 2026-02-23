@@ -256,16 +256,28 @@ function Start-AppsList {
         } elseif (Test-FieldHasValue -Object $app -Name 'CustomCommand') {
             # Type-agnostic CustomCommand: just run the command in the app directory
             $customCmd = Get-FieldValue -Object $app -Name 'CustomCommand'
-            # Look for manage.py for Django-style commands, otherwise run as Python script
-            $manageRel = Get-ManagePyRelative -WorkingDir $workingDir
-            if ($manageRel) {
-                $escapedManage = $manageRel -replace "'", "''"
-                if ($packageManager -ieq 'uv') { $runCmd = "uv run python '$escapedManage' $customCmd" }
-                else { $runCmd = "${bootstrapPrefix}${venvActivatePrefix}py '$escapedManage' $customCmd" }
-            } else {
-                # Fallback: run as raw command (e.g., "python script.py args")
-                if ($packageManager -ieq 'uv') { $runCmd = "uv run $customCmd" }
+            # If the command starts with a known prefix or contains a path separator, treat it as
+            # a full command (e.g. "django_app/manage.py cache_scheduler"). Otherwise, try to
+            # find manage.py and treat it as a bare Django management command name.
+            $cmdFirstToken = ($customCmd -split '\s+')[0]
+            $isFullCommand = ($cmdFirstToken -match '[/\\]') -or
+                             ($cmdFirstToken -match '^(python|uv|pip|bash|sh|py)$')
+            if ($isFullCommand) {
+                # Full command - run as-is
+                if ($packageManager -ieq 'uv' -and $cmdFirstToken -notmatch '^uv$') { $runCmd = "uv run $customCmd" }
                 else { $runCmd = "${bootstrapPrefix}${venvActivatePrefix}$customCmd" }
+            } else {
+                # Look for manage.py for bare Django management command names
+                $manageRel = Get-ManagePyRelative -WorkingDir $workingDir
+                if ($manageRel) {
+                    $escapedManage = $manageRel -replace "'", "''"
+                    if ($packageManager -ieq 'uv') { $runCmd = "uv run python '$escapedManage' $customCmd" }
+                    else { $runCmd = "${bootstrapPrefix}${venvActivatePrefix}py '$escapedManage' $customCmd" }
+                } else {
+                    # Fallback: run as raw command (e.g., "python script.py args")
+                    if ($packageManager -ieq 'uv') { $runCmd = "uv run $customCmd" }
+                    else { $runCmd = "${bootstrapPrefix}${venvActivatePrefix}$customCmd" }
+                }
             }
         } elseif ($type -ieq 'Dash') {
             if ($packageManager -ieq 'uv') { $runCmd = "uv run python '$escapedIndex'$dashPortArg" }
