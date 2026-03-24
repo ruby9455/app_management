@@ -194,7 +194,7 @@ get_port_number() {
 }
 
 # Build app JSON object from parameters
-# Usage: build_app_json "name" "type" "port" "app_path" "index_path" "venv_path" "pkg_manager"
+# Usage: build_app_json "name" "type" "port" "app_path" "index_path" "venv_path" "pkg_manager" "nginx_path"
 build_app_json() {
     local name="$1"
     local app_type="$2"
@@ -203,6 +203,7 @@ build_app_json() {
     local index_path="${5:-}"
     local venv_path="${6:-}"
     local pkg_manager="${7:-}"
+    local nginx_path="${8:-}"
     
     local json=$(jq -n \
         --arg name "$name" \
@@ -222,6 +223,10 @@ build_app_json() {
     
     if [[ -n "$pkg_manager" ]]; then
         json=$(echo "$json" | jq --arg val "$pkg_manager" '. + {PackageManager: $val}')
+    fi
+
+    if [[ -n "$nginx_path" ]]; then
+        json=$(echo "$json" | jq --arg val "$nginx_path" '. + {NginxPath: $val}')
     fi
     
     echo "$json"

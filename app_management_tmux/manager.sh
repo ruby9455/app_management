@@ -916,8 +916,12 @@ edit_app() {
         read -r -p "PackageManager [$current_pm]: " new_pm
         new_pm="${new_pm:-$current_pm}"
         
+        local current_nginx=$(echo "$app_json" | jq -r '.NginxPath // ""')
+        read -r -p "NginxPath (leave empty if none) [$current_nginx]: " new_nginx
+        new_nginx="${new_nginx:-$current_nginx}"
+        
         # Build updated app
-        local updated_app=$(build_app_json "$new_name" "$new_type" "$new_port" "$new_app_path" "$new_index" "$new_venv" "$new_pm")
+        local updated_app=$(build_app_json "$new_name" "$new_type" "$new_port" "$new_app_path" "$new_index" "$new_venv" "$new_pm" "$new_nginx")
         
         echo ""
         echo -e "${CYAN}Updated configuration:${NC}"
@@ -983,6 +987,8 @@ display_network_urls() {
     # Show dashboard status
     if is_landing_page_running; then
         echo -e "  ${GREEN}Dashboard:${NC}    http://localhost:$LANDING_PAGE_PORT ${GREEN}(running)${NC}"
+        echo -e "  ${GREEN}Dashboard:${NC}    $NETWORK_URL:$LANDING_PAGE_PORT ${GREEN}(running)${NC}"
+        echo -e "  ${GREEN}Dashboard:${NC}    $NETWORK_URL/app_dashboard/ ${GREEN}(running)${NC}"
     else
         echo -e "  ${YELLOW}Dashboard:${NC}    Not running (press D to start)"
     fi
