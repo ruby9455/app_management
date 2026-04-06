@@ -66,14 +66,14 @@ INTERACTIVE COMMANDS:
     Manage apps:
         [number(s)] Start app(s) by index (e.g., 1,2,3) (0 for all)
         [name]      Start app by name
-        s [num]     Stop app by index (0 for all)
-        r [num]     Restart app by index (0 for all)
-        u [num]     Update app from repo (0 for all)
+        s [num(s)]  Stop app(s) by index (e.g., 1,2,3) (0 for all)
+        r [num(s)]  Restart app(s) by index (e.g., 1,2,3) (0 for all)
+        u [num(s)]  Update app(s) from repo (e.g., 1,2,3) (0 for all)
     Edit apps.json:
         aa          Add a new app
         ap          Add a new process (custom command)
         e [num]     Edit by index
-        d [num]     Delete app by index
+        d [num(s)]  Delete app(s) by index (e.g., 1,2,3)
     Tmux:
         l           List tmux windows
         t           Attach to tmux session
@@ -1008,14 +1008,14 @@ interactive_menu() {
         echo "  Manage apps"
         echo "    [number(s)] - Start app(s) by index (e.g., 1,2,3) (0 for all)"
         echo "    [name]      - Start app by name"
-        echo "    s [num]     - Stop app by index (0 for all)"
-        echo "    r [num]     - Restart app by index (0 for all)"
-        echo "    u [num]     - Update app from repo (0 for all)"
+        echo "    s [num(s)]  - Stop app(s) by index (e.g., 1,2,3) (0 for all)"
+        echo "    r [num(s)]  - Restart app(s) by index (e.g., 1,2,3) (0 for all)"
+        echo "    u [num(s)]  - Update app(s) from repo (e.g., 1,2,3) (0 for all)"
         echo "  Edit apps.json"
         echo "    aa          - Add a new app"
         echo "    ap          - Add a new process (custom command)"
         echo "    e [num]     - Edit by index"
-        echo "    d [num]     - Delete app by index"
+        echo "    d [num(s)]  - Delete app(s) by index (e.g., 1,2,3)"
         echo "  Tmux"
         echo "    l           - List tmux windows"
         echo "    t           - Attach to tmux session"
@@ -1105,7 +1105,16 @@ interactive_menu() {
                 # Delete command
                 local delete_target="${input#d }"
                 delete_target="${delete_target#d}"
-                delete_app "$delete_target"
+                if [[ "$delete_target" =~ ^[0-9,]+$ ]]; then
+                    IFS=',' read -ra _indices <<< "$delete_target"
+                    for _idx_str in "${_indices[@]}"; do
+                        _idx_str=$(echo "$_idx_str" | xargs)
+                        [[ -z "$_idx_str" ]] && continue
+                        delete_app "$_idx_str"
+                    done
+                else
+                    delete_app "$delete_target"
+                fi
                 ;;
             s\ *|s[0-9]*)
                 # Stop command
@@ -1113,16 +1122,22 @@ interactive_menu() {
                 stop_target="${stop_target#s}"
                 if [[ "$stop_target" == "0" ]]; then
                     stop_all_apps || true
-                elif [[ "$stop_target" =~ ^[0-9]+$ ]]; then
-                    local idx=$((stop_target - 1))
-                    local app_json=$(echo "$APPS_JSON" | jq ".[$idx] // empty")
-                    if [[ -n "$app_json" && "$app_json" != "null" ]]; then
-                        stop_app "$app_json" || true
-                    else
-                        echo -e "${RED}Invalid index: $stop_target${NC}"
-                    fi
+                elif [[ "$stop_target" =~ ^[0-9,]+$ ]]; then
+                    IFS=',' read -ra _indices <<< "$stop_target"
+                    for _idx_str in "${_indices[@]}"; do
+                        _idx_str=$(echo "$_idx_str" | xargs)
+                        [[ -z "$_idx_str" ]] && continue
+                        if [[ "$_idx_str" == "0" ]]; then stop_all_apps || true; continue; fi
+                        local _idx=$((_idx_str - 1))
+                        local _app_json=$(echo "$APPS_JSON" | jq ".[$_idx] // empty")
+                        if [[ -n "$_app_json" && "$_app_json" != "null" ]]; then
+                            stop_app "$_app_json" || true
+                        else
+                            echo -e "${RED}Invalid index: $_idx_str${NC}"
+                        fi
+                    done
                 else
-                    echo -e "${YELLOW}Usage: s <number> (0 for all)${NC}"
+                    echo -e "${YELLOW}Usage: s <number(s)> (e.g., 1,2,3) (0 for all)${NC}"
                 fi
                 ;;
             r\ *|r[0-9]*)
@@ -1134,16 +1149,26 @@ interactive_menu() {
                     echo "$APPS_JSON" | jq -c '.[]' | while IFS= read -r app; do
                         restart_app "$app" || true
                     done
-                elif [[ "$restart_target" =~ ^[0-9]+$ ]]; then
-                    local idx=$((restart_target - 1))
-                    local app_json=$(echo "$APPS_JSON" | jq ".[$idx] // empty")
-                    if [[ -n "$app_json" && "$app_json" != "null" ]]; then
-                        restart_app "$app_json" || true
-                    else
-                        echo -e "${RED}Invalid index: $restart_target${NC}"
-                    fi
+                elif [[ "$restart_target" =~ ^[0-9,]+$ ]]; then
+                    IFS=',' read -ra _indices <<< "$restart_target"
+                    for _idx_str in "${_indices[@]}"; do
+                        _idx_str=$(echo "$_idx_str" | xargs)
+                        [[ -z "$_idx_str" ]] && continue
+                        if [[ "$_idx_str" == "0" ]]; then
+                            echo -e "${CYAN}Restarting all apps...${NC}"
+                            echo "$APPS_JSON" | jq -c '.[]' | while IFS= read -r app; do restart_app "$app" || true; done
+                            continue
+                        fi
+                        local _idx=$((_idx_str - 1))
+                        local _app_json=$(echo "$APPS_JSON" | jq ".[$_idx] // empty")
+                        if [[ -n "$_app_json" && "$_app_json" != "null" ]]; then
+                            restart_app "$_app_json" || true
+                        else
+                            echo -e "${RED}Invalid index: $_idx_str${NC}"
+                        fi
+                    done
                 else
-                    echo -e "${YELLOW}Usage: r <number> (0 for all)${NC}"
+                    echo -e "${YELLOW}Usage: r <number(s)> (e.g., 1,2,3) (0 for all)${NC}"
                 fi
                 ;;
             u\ *|u[0-9]*|u0)
@@ -1156,16 +1181,26 @@ interactive_menu() {
                     echo "$APPS_JSON" | jq -c '.[]' | while IFS= read -r app; do
                         update_app "$app" || true
                     done
-                elif [[ "$update_target" =~ ^[0-9]+$ ]]; then
-                    local idx=$((update_target - 1))
-                    local app_json=$(echo "$APPS_JSON" | jq ".[$idx] // empty")
-                    if [[ -n "$app_json" && "$app_json" != "null" ]]; then
-                        update_app "$app_json" || true
-                    else
-                        echo -e "${RED}Invalid index: $update_target${NC}"
-                    fi
+                elif [[ "$update_target" =~ ^[0-9,]+$ ]]; then
+                    IFS=',' read -ra _indices <<< "$update_target"
+                    for _idx_str in "${_indices[@]}"; do
+                        _idx_str=$(echo "$_idx_str" | xargs)
+                        [[ -z "$_idx_str" ]] && continue
+                        if [[ "$_idx_str" == "0" ]]; then
+                            echo -e "${CYAN}Updating all apps...${NC}"
+                            echo "$APPS_JSON" | jq -c '.[]' | while IFS= read -r app; do update_app "$app" || true; done
+                            continue
+                        fi
+                        local _idx=$((_idx_str - 1))
+                        local _app_json=$(echo "$APPS_JSON" | jq ".[$_idx] // empty")
+                        if [[ -n "$_app_json" && "$_app_json" != "null" ]]; then
+                            update_app "$_app_json" || true
+                        else
+                            echo -e "${RED}Invalid index: $_idx_str${NC}"
+                        fi
+                    done
                 else
-                    echo -e "${YELLOW}Usage: u <number> or u 0 for all${NC}"
+                    echo -e "${YELLOW}Usage: u <number(s)> (e.g., 1,2,3) or u 0 for all${NC}"
                 fi
                 ;;
             *)
