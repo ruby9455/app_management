@@ -112,6 +112,7 @@ build_app_run_command() {
     local port=$(echo "$app_json" | jq -r '.Port // empty')
     local index_path=$(echo "$app_json" | jq -r '.IndexPath // empty')
     local base_path=$(echo "$app_json" | jq -r '.BasePath // empty')
+    local nginx_path=$(echo "$app_json" | jq -r '.NginxPath // empty')
     local venv_path=$(echo "$app_json" | jq -r '.VenvPath // empty')
     local pkg_manager=$(echo "$app_json" | jq -r '.PackageManager // empty')
     local custom_command=$(echo "$app_json" | jq -r '.CustomCommand // empty')
@@ -137,8 +138,17 @@ build_app_run_command() {
         Streamlit)
             local port_arg=""
             local basepath_arg=""
+            local effective_base_path="$base_path"
+
+            if [[ -z "$effective_base_path" && -n "$nginx_path" ]]; then
+                # Streamlit needs the upstream base path to match the nginx mount path.
+                effective_base_path="$nginx_path"
+            fi
+
+            effective_base_path="${effective_base_path#/}"
+
             [[ -n "$port" ]] && port_arg=" --server.port $port"
-            [[ -n "$base_path" ]] && basepath_arg=" --server.baseUrlPath '$base_path'"
+            [[ -n "$effective_base_path" ]] && basepath_arg=" --server.baseUrlPath '$effective_base_path'"
             
             if [[ "$pkg_manager" == "uv" ]]; then
                 run_cmd="uv run streamlit run '$index_path'$port_arg$basepath_arg"

@@ -190,22 +190,21 @@ generate_dashboard_html "$apps_json" "$network_url" "$external_url" "$generic_ur
     def log_message(self, format, *args):
         pass
 
+class ReusableTCPServer(socketserver.TCPServer):
+    allow_reuse_address = True
+
 HOST = '0.0.0.0'
 
 try:
-    with socketserver.TCPServer((HOST, PORT_NUM), DashboardHandler) as httpd:
+    with ReusableTCPServer((HOST, PORT_NUM), DashboardHandler) as httpd:
         httpd.serve_forever()
 except OSError as e:
     if 'Address already in use' in str(e):
-        print(f"Port {PORT_NUM} is busy, trying next port...", file=sys.stderr)
-        for p in range(PORT_NUM+1, PORT_NUM+20):
-            try:
-                with socketserver.TCPServer((HOST, p), DashboardHandler) as httpd:
-                    print(f"Server started on port {p}", file=sys.stderr)
-                    httpd.serve_forever()
-                break
-            except OSError:
-                continue
+        print(
+            f"Error: port {PORT_NUM} is unavailable. The dashboard must bind to this fixed port for nginx.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     else:
         raise
 PYTHON_EOF
@@ -253,11 +252,10 @@ else
     echo -e "  ${GREEN}Local:${NC}     http://localhost:${PORT}${NC}"
     echo ""
     
-    # Find a free port
-    while nc -z localhost $PORT 2>/dev/null; do
-        echo -e "${YELLOW}Port $PORT is busy, trying $((PORT+1))...${NC}"
-        PORT=$((PORT + 1))
-    done
+    if nc -z localhost $PORT 2>/dev/null; then
+        echo -e "${RED}Error: Port $PORT is already in use. The dashboard must use this fixed port for nginx.${NC}"
+        exit 1
+    fi
     
     # Simple HTTP server using bash and nc  
     while true; do

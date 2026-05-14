@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Writes the unified nginx server block for all apps on 10.17.62.155,
+# Writes the unified nginx server block for the dashboard and nginx-path apps,
 # removes the now-redundant nd_shift_report site symlink, then reloads nginx.
 
 set -euo pipefail
@@ -10,7 +10,7 @@ SITES_ENABLED="/etc/nginx/sites-enabled"
 sudo tee "$SITES_AVAILABLE/app_dashboard" > /dev/null << 'EOF'
 server {
     listen 80;
-    server_name 10.17.62.155;
+    server_name localhost ~^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$;
 
     # ── app_dashboard (port 1111) ─────────────────────────────────────────────
     location = /app_dashboard {

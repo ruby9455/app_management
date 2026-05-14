@@ -9,7 +9,7 @@ NGINX_LINK="/etc/nginx/sites-enabled/app_dashboard"
 cat > "$NGINX_CONF" << 'CONF'
 server {
     listen 80;
-    server_name 10.17.62.155;
+    server_name localhost ~^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$;
 
     location = /app_dashboard {
         return 301 /app_dashboard/;
@@ -30,4 +30,4 @@ fi
 
 nginx -t && systemctl reload nginx
 
-echo "Done. Access the dashboard at http://10.17.62.155/app_dashboard/"
+echo "Done. Access the dashboard at http://<server-ip>/app_dashboard/"

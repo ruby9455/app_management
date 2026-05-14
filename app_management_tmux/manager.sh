@@ -199,40 +199,57 @@ start_landing_page() {
     
     # Check if already running
     if tmux_window_exists "$window_name"; then
-        echo -e "${CYAN}Dashboard already running${NC}"
-        return 0
+        if ! is_port_in_use "$LANDING_PAGE_PORT"; then
+            echo -e "${YELLOW}Removing stale dashboard window...${NC}"
+            tmux_kill_window "$window_name" 2>/dev/null || true
+        else
+            echo -e "${CYAN}Dashboard already running${NC}"
+            return 0
+        fi
     fi
-    
+
     # Also check if port is in use
     if is_port_in_use "$LANDING_PAGE_PORT"; then
         echo -e "${CYAN}Dashboard port $LANDING_PAGE_PORT already in use${NC}"
         return 0
     fi
-    
+
     if $DRY_RUN; then
         echo -e "${YELLOW}[DRY RUN] Would start landing page dashboard on port $LANDING_PAGE_PORT${NC}"
         return 0
     fi
-    
+
     echo -e "${GREEN}Starting landing page dashboard on port $LANDING_PAGE_PORT...${NC}"
-    
+
     ensure_tmux_session
-    
+
     # Start landing_page.sh in its own tmux window
     local landing_script="$SCRIPT_DIR/landing_page.sh"
-    
+
     if [[ ! -x "$landing_script" ]]; then
         echo -e "${YELLOW}Warning: landing_page.sh not found or not executable${NC}"
         return 1
     fi
-    
+
     tmux new-window -t "$TMUX_SESSION_NAME" -n "$sanitized_name" -c "$SCRIPT_DIR" \
         bash -c "echo '=== Starting: Dashboard ==='; '$landing_script' '$LANDING_PAGE_PORT'; ret=\$?; echo ''; echo '=== Dashboard exited with code '\$ret' ==='; echo 'Press Enter to close this window...'; read"
-    
+
     # Remove placeholder window if it exists
     tmux kill-window -t "$TMUX_SESSION_NAME:_placeholder" 2>/dev/null || true
-    
-    echo -e "${GREEN}Dashboard running at http://localhost:$LANDING_PAGE_PORT${NC}"
+
+    local attempts=20
+    while (( attempts > 0 )); do
+        if is_port_in_use "$LANDING_PAGE_PORT"; then
+            echo -e "${GREEN}Dashboard running at http://localhost:$LANDING_PAGE_PORT${NC}"
+            return 0
+        fi
+
+        sleep 0.25
+        ((attempts--))
+    done
+
+    echo -e "${YELLOW}Dashboard window started, but port $LANDING_PAGE_PORT is not listening. Check the dashboard tmux window for errors.${NC}"
+    return 1
 }
 
 # Stop the landing page dashboard
