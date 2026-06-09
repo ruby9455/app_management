@@ -47,9 +47,9 @@ get_external_url_prefix() {
     for service in "${services[@]}"; do
         local ip
         if command -v curl &>/dev/null; then
-            ip=$(curl -s --connect-timeout "$timeout" "$service" 2>/dev/null)
+            ip=$(curl -s --connect-timeout "$timeout" --max-time "$timeout" --noproxy "*" "$service" 2>/dev/null)
         elif command -v wget &>/dev/null; then
-            ip=$(wget -qO- --timeout="$timeout" "$service" 2>/dev/null)
+            ip=$(wget -qO- --timeout="$timeout" --no-proxy "$service" 2>/dev/null)
         fi
         
         # Validate it looks like an IP
