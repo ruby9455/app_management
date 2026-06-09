@@ -1,0 +1,254 @@
+{
+    "$schema": "./config.schema.json",
+    "nd_shift_report": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\nd_shift_report",
+        "p5": "/home/shcc/code/shcc/nd_shift_report"
+    }
+    ,
+    "ADM_DSC": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\ADM_DSC"
+    },
+    "app_management": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\app_management",
+        "p5": "/home/shcc/code/app_management"
+    },
+    "db_utils": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\db_utils"
+    },
+    "django-soft-ui-dashboard": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\django-soft-ui-dashboard"
+    },
+    "init_app": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\init_app"
+    },
+    "Oil_Django": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\Oil_Django"
+    },
+    "REDCap_Dashboard": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\REDCap_Dashboard"
+    },
+    "sah_bed_visibility": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\sah_bed_visibility"
+    },
+    "sf_agent": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\sf_agent"
+    },
+    "SystemFlow": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\SystemFlow"
+    },
+    "machineconfig": {
+        "p5": "/home/shcc/code/machineconfig"
+    }
+    ,
+    "property": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\fun\\property"
+    },
+    "ed_admits_pred": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\prediction\\ed_admits_pred",
+        "p5": "/home/shcc/code/shcc/ed_admits_pred"
+    },
+    "streamlit_test": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\test\\streamlit_test"
+    },
+    "driving_assessment": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\Rehab\\driving_assessment",
+        "p5": "/home/shcc/code/rehab/driving_assessment"
+    },
+    "emr_explorer": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\Rehab\\emr_explorer",
+        "p5": "/home/shcc/code/rehab/emr_explorer"
+    },
+    "long_covid": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\Rehab\\long_covid",
+        "p5": "/home/shcc/code/rehab/long_covid"
+    },
+    "long_covid_analysis": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\Rehab\\long_covid_analysis"
+    },
+    "nurse_led_clinic": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\Rehab\\nurse_led_clinic",
+        "p5": "/home/shcc/code/rehab/nurse_led_clinic"
+    },
+    "Rehab_LOS-1": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\Rehab\\Rehab_LOS-1"
+    },
+    "stroke_rehab": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\Rehab\\stroke_rehab",
+        "p5": "/home/shcc/code/rehab/stroke_rehab"
+    },
+    "yss": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\Rehab\\yss",
+        "p5": "/home/shcc/code/rehab/yss"
+    },
+    "Systemflow": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\SystemFlowCloud\\Systemflow",
+        "p5": "/home/shcc/code/shcc/SystemFlow"
+    },
+    "tc-form": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\SystemFlowCloud\\tc-form"
+    },
+    "control_center": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\work\\control_center",
+        "p5": "/home/shcc/code/work/control_center"
+    },
+    "dap": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\work\\dap",
+        "p5": "/home/shcc/code/work/dap"
+    },
+    "daplink": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\work\\daplink",
+        "p5": "/home/shcc/code/work/daplink"
+    },
+    "sahml": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\work\\sahml",
+        "p5": "/home/shcc/code/work/sahml"
+    },
+    "summascribe": {
+        "SAH0267888": "C:\\Users\\rchan09\\code\\work\\summascribe",
+        "p5": "/home/shcc/code/work/summascribe"
+    },
+    "oauth_jack": {
+        "p5": "/home/shcc/code/work/oauth_jack"
+    },
+    "winter_planning": {
+        "p5": "/home/shcc/code/work/winter_planning"
+    },
+    "service_grouping": {
+        "p5": "/home/shcc/code/work/service_grouping"
+    },
+    "SQLScriptsRepo": {
+        "p5": "/home/shcc/code/work/SQLScriptsRepo"
+    },
+    "stomp": {
+        "p5": "/home/shcc/code/work/stomp"
+    },
+    "tree_viz": {
+        "p5": "/home/shcc/code/work/tree_viz"
+    },
+    "emr_prod_queries": {
+        "p5": "/home/shcc/code/work/emr_prod_queries"
+    },
+    "nlp": {
+        "p5": "/home/shcc/code/work/nlp"
+    },
+    "aiview": {
+        "p5": "/home/shcc/code/work/aiview"
+    },
+    "template": {
+        "p5": "/home/shcc/code/work/template"
+    },
+    "occupancy": {
+        "p5": "/home/shcc/code/work/occupancy"
+    },
+    "ClinQuery": {
+        "p5": "/home/shcc/code/work/ClinQuery"
+    },
+    "salhn": {
+        "p5": "/home/shcc/code/work/salhn"
+    },
+    "sqlglot": {
+        "p5": "/home/shcc/code/work/sqlglot"
+    },
+    "jurina": {
+        "p5": "/home/shcc/code/work/jurina"
+    },
+    "caretrace": {
+        "p5": "/home/shcc/code/work/caretrace"
+    },
+    "ed_optimization": {
+        "p5": "/home/shcc/code/work/ed_optimization"
+    },
+    "saas2emr": {
+        "p5": "/home/shcc/code/work/saas2emr"
+    },
+    "snowflake_chat": {
+        "p5": "/home/shcc/code/work/snowflake_chat"
+    },
+    "GenMedLOS": {
+        "p5": "/home/shcc/code/work/GenMedLOS"
+    },
+    "ED_INP_Connection": {
+        "p5": "/home/shcc/code/work/ED_INP_Connection"
+    },
+    "logo-host": {
+        "p5": "/home/shcc/code/work/logo-host"
+    },
+    "supervisitguid": {
+        "p5": "/home/shcc/code/work/supervisitguid"
+    },
+    "LOS_107": {
+        "p5": "/home/shcc/code/work/LOS_107"
+    },
+    "vcs_savcs_hd_nonhd": {
+        "p5": "/home/shcc/code/vcs/savcs_hd_nonhd"
+    },
+    "device_log": {
+        "p5": "/home/shcc/code/vcs/device_log"
+    },
+    "adhoc_ramida": {
+        "p5": "/home/shcc/code/vcs/adhoc_ramida"
+    },
+    "savcs_census_income": {
+        "p5": "/home/shcc/code/vcs/savcs_census_income"
+    },
+    "savcs_nps": {
+        "p5": "/home/shcc/code/vcs/savcs_nps"
+    },
+    "savcs_doctor_outcome": {
+        "p5": "/home/shcc/code/vcs/savcs_doctor_outcome"
+    },
+    "economic_model": {
+        "p5": "/home/shcc/code/vcs/economic_model"
+    },
+    "number_patient_api": {
+        "p5": "/home/shcc/code/vcs/number_patient_api"
+    },
+    "savcs_healthdirect": {
+        "p5": "/home/shcc/code/vcs/savcs_healthdirect"
+    },
+    "vcs_ED_INP_Connection": {
+        "p5": "/home/shcc/code/vcs/ED_INP_Connection"
+    },
+    "rehab_emr_notes_data_scrapping": {
+        "p5": "/home/shcc/code/rehab/emr_notes_data_scrapping"
+    },
+    "db_utils_rehab": {
+        "p5": "/home/shcc/code/rehab/db_utils"
+    },
+    "app_management_p5": {
+        "p5": "/home/shcc/code/app_management"
+    },
+    "shcc_Oil_Django": {
+        "p5": "/home/shcc/code/shcc/Oil_Django"
+    },
+    "sah_bed": {
+        "p5": "/home/shcc/code/shcc/sah_bed"
+    },
+    "TOC_App": {
+        "p5": "/home/shcc/code/shcc/TOC_App"
+    },
+    "Care_Progression": {
+        "p5": "/home/shcc/code/shcc/Care_Progression"
+    },
+    "SIFT_FORM_TEST": {
+        "p5": "/home/shcc/code/shcc/SIFT_FORM_TEST"
+    },
+    "shcc_ADM_DSC": {
+        "p5": "/home/shcc/code/shcc/ADM_DSC"
+    },
+    "navigation": {
+        "p5": "/home/shcc/code/shcc/navigation"
+    },
+    "Priority_2_Prediction": {
+        "p5": "/home/shcc/code/shcc/Priority_2_Prediction"
+    },
+    "savcs_state_mapping": {
+        "p5": "/home/shcc/code/shcc/savcs_state_mapping"
+    },
+    "clis": {
+        "p5": "/home/shcc/code/shcc/clis"
+    },
+    "sah_bed_visibility_p5": {
+        "p5": "/home/shcc/code/shcc/sah_bed_visibility"
+    }
+}
