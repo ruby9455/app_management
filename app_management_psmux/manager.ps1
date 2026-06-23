@@ -675,19 +675,23 @@ function Show-InteractiveMenu {
             }
             '^(aa|add)$' {
                 Add-NewApp
+                break
             }
             '^(ap|process)$' {
                 Add-NewProcess
+                break
             }
             '^(l|list)$' {
                 Get-PsmuxWindowList
+                break
             }
             '^t$' {
                 Write-Color $script:CYAN "Attaching to psmux session... (Ctrl+B, D to detach)"
                 Start-Sleep -Seconds 1
                 Connect-PsmuxSession
+                break
             }
-            '^t[\s]+(\d+)$' {
+            '^t[\s]*(\d+)$' {
                 $attachIdx = [int]($Matches[1]) - 1
                 if ($attachIdx -ge 0 -and $attachIdx -lt $script:APPS_JSON.Count) {
                     $appName = $script:APPS_JSON[$attachIdx].Name
@@ -702,31 +706,38 @@ function Show-InteractiveMenu {
                 } else {
                     Write-Color $script:RED "Invalid index"
                 }
+                break
             }
             '^s$' {
-                Write-Color $script:YELLOW "Usage: s <number> (0 for all)"
+                Write-Color $script:YELLOW "Usage: s <number(s)> (e.g., s1  s1,2,3  s0 for all)"
+                break
             }
-            '^s[\s]+(.+)$' {
+            '^s[\s]*(.+)$' {
                 $sel = $Matches[1].Trim()
                 if ($sel -eq '0') {
                     foreach ($a in $script:APPS_JSON) { Stop-SingleApp -AppObj $a }
                 } else {
                     foreach ($a in (Get-AppsBySelection -Selection $sel)) { Stop-SingleApp -AppObj $a }
                 }
+                break
             }
-            '^r[\s]+(.+)$' {
+            '^r[\s]*(.+)$' {
                 $sel = $Matches[1].Trim()
                 foreach ($a in (Get-AppsBySelection -Selection $sel)) { Restart-SingleApp -AppObj $a }
+                break
             }
-            '^u[\s]+(.+)$' {
+            '^u[\s]*(.+)$' {
                 $sel = $Matches[1].Trim()
                 foreach ($a in (Get-AppsBySelection -Selection $sel)) { Update-SingleApp -AppObj $a }
+                break
             }
-            '^e[\s]+(\d+)$' {
+            '^e[\s]*(\d+)$' {
                 Edit-App -Target $Matches[1]
+                break
             }
-            '^d[\s]+([\d,]+)$' {
+            '^d[\s]*([\d,\s]+)$' {
                 $Matches[1] -split '\s*,\s*' | Where-Object { $_ } | ForEach-Object { Remove-App -Target $_.Trim() }
+                break
             }
             default {
                 if (-not [string]::IsNullOrWhiteSpace($input)) {

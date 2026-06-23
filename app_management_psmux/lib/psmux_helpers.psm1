@@ -83,8 +83,11 @@ function New-PsmuxWindow {
     & psmux new-window -t $global:PSMUX_SESSION_NAME -n $winName -c $WorkingDir -d 2>&1 | Out-Null
     & psmux send-keys -t "$($global:PSMUX_SESSION_NAME):$winName" "$pwsh -NoLogo -EncodedCommand $encoded" Enter 2>&1 | Out-Null
 
-    # Remove placeholder window if it exists
-    & psmux kill-window -t "$($global:PSMUX_SESSION_NAME):_placeholder" 2>&1 | Out-Null
+    # Only kill the placeholder window if it actually exists — psmux silently kills
+    # window 0 when the target name is not found, which would destroy a real app window.
+    if (Test-PsmuxWindowExists -AppName '_placeholder') {
+        & psmux kill-window -t "$($global:PSMUX_SESSION_NAME):_placeholder" 2>&1 | Out-Null
+    }
 
     return $true
 }
