@@ -67,6 +67,9 @@ $ErrorActionPreference = 'Stop'
 
 $SCRIPT_DIR = $PSScriptRoot
 
+# Mutable copy of NoLanding so the D toggle can re-enable the dashboard at runtime
+$script:SkipLanding = $NoLanding.IsPresent
+
 # Color variables (ANSI escape codes) - defined here so all functions in this
 # script can reference them directly without crossing module scope boundaries.
 $script:RED    = "`e[0;31m"
@@ -132,22 +135,10 @@ function Invoke-LoadAppsJson {
 
 # ── Landing page ──────────────────────────────────────────────────────────────
 function Start-LandingPage {
-    if ($NoLanding -or -not $global:LANDING_PAGE_ENABLED) { return }
-
-    $winName = $global:LANDING_PAGE_WINDOW_NAME
-
-    if (Test-PsmuxWindowExists -AppName $winName) {
-        if (-not (Test-PortInUse -Port $global:LANDING_PAGE_PORT)) {
-            Write-Color $script:YELLOW "Removing stale dashboard window..."
-            Remove-PsmuxWindow -AppName $winName
-        } else {
-            Write-Color $script:CYAN "Dashboard already running"
-            return
-        }
-    }
+    if ($script:SkipLanding -or -not $global:LANDING_PAGE_ENABLED) { return }
 
     if (Test-PortInUse -Port $global:LANDING_PAGE_PORT) {
-        Write-Color $script:CYAN "Dashboard port $($global:LANDING_PAGE_PORT) already in use"
+        Write-Color $script:CYAN "Dashboard already running on port $($global:LANDING_PAGE_PORT)"
         return
     }
 
@@ -163,12 +154,13 @@ function Start-LandingPage {
     }
 
     Write-Color $script:GREEN "Starting landing page dashboard on port $($global:LANDING_PAGE_PORT)..."
-    Invoke-EnsurePsmuxSession
 
     $pwsh = (Get-Command pwsh).Source
-    $cmd  = "& '$($landingScript -replace "'","''")' -Port $($global:LANDING_PAGE_PORT)"
-    New-PsmuxWindow -AppName $winName -WorkingDir $SCRIPT_DIR -Command $cmd | Out-Null
+    Start-Process -FilePath $pwsh `
+        -ArgumentList @('-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $landingScript, '-Port', $global:LANDING_PAGE_PORT) `
+        -WindowStyle Hidden
 
+    # Wait up to 5 seconds for the port to open
     $attempts = 20
     while ($attempts -gt 0) {
         if (Test-PortInUse -Port $global:LANDING_PAGE_PORT) {
@@ -178,29 +170,22 @@ function Start-LandingPage {
         Start-Sleep -Milliseconds 250
         $attempts--
     }
-    Write-Color $script:YELLOW "Dashboard window started but port $($global:LANDING_PAGE_PORT) is not yet listening."
+    Write-Color $script:YELLOW "Dashboard started but port $($global:LANDING_PAGE_PORT) is not yet listening. Check landing_page.ps1 for errors."
 }
 
 function Stop-LandingPage {
     if ($DryRun) { Write-Color $script:YELLOW "[DryRun] Would stop landing page dashboard"; return }
-    $winName = $global:LANDING_PAGE_WINDOW_NAME
-    $stopped = $false
-    if (Test-PsmuxWindowExists -AppName $winName) {
+    if (Test-PortInUse -Port $global:LANDING_PAGE_PORT) {
         Write-Color $script:CYAN "Stopping landing page dashboard..."
-        Stop-PsmuxApp -AppName $winName
-        $stopped = $true
-        Start-Sleep -Seconds 2
-    }
-    if (-not $stopped -and (Test-PortInUse -Port $global:LANDING_PAGE_PORT)) {
         Stop-Port -Port $global:LANDING_PAGE_PORT
-        $stopped = $true
+        Write-Color $script:GREEN "Dashboard stopped"
+    } else {
+        Write-Color $script:YELLOW "Dashboard was not running"
     }
-    if ($stopped) { Write-Color $script:GREEN "Dashboard stopped" }
 }
 
 function Test-LandingPageRunning {
-    return (Test-PsmuxWindowExists -AppName $global:LANDING_PAGE_WINDOW_NAME) -or
-           (Test-PortInUse -Port $global:LANDING_PAGE_PORT)
+    return (Test-PortInUse -Port $global:LANDING_PAGE_PORT)
 }
 
 # ── Safe property access (strict-mode safe) ───────────────────────────────────
@@ -675,7 +660,7 @@ function Show-InteractiveMenu {
         # Case-sensitive commands first
         if ($input -ceq 'D') {
             if (Test-LandingPageRunning) { Stop-LandingPage }
-            else { $NoLanding = $false; Start-LandingPage }
+            else { $script:SkipLanding = $false; Start-LandingPage }
             Write-Host ""; Write-Host "Press Enter to continue..."; Read-Host | Out-Null
             continue
         }
@@ -782,7 +767,7 @@ function Main {
     Invoke-LoadAppsJson
 
     # Handle landing page
-    if ($NoLanding) {
+    if ($script:SkipLanding) {
         if (Test-LandingPageRunning) { Stop-LandingPage }
     } elseif ($global:LANDING_PAGE_ENABLED) {
         Start-LandingPage

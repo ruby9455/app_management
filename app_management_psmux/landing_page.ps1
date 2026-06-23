@@ -52,7 +52,11 @@ function New-DashboardHtml {
     $externalUrl = Get-ExternalUrlPrefix
     $genericUrl  = Get-GenericUrlPrefix
 
-    $appsWithPorts = @($apps | Where-Object { $_.Port -and [int]$_.Port -gt 0 })
+    $appsWithPorts = @($apps | Where-Object {
+        $p = $null
+        if ($_.PSObject.Properties.Name -contains 'Port') { $p = $_.Port }
+        $p -and -not [string]::IsNullOrWhiteSpace([string]$p) -and [int]$p -gt 0
+    })
     if ($appsWithPorts.Count -eq 0) { return "<html><body><p>No apps with valid ports.</p></body></html>" }
 
     $html = @"
@@ -236,7 +240,11 @@ $requestHandler = {
             $networkUrl  = Get-NetworkUrlPrefix
             $externalUrl = Get-ExternalUrlPrefix
             $genericUrl  = Get-GenericUrlPrefix
-            $appsWithPorts = @($apps | Where-Object { $_.Port -and [int]$_.Port -gt 0 })
+    $appsWithPorts = @($apps | Where-Object {
+        $p = $null
+        if ($_.PSObject.Properties.Name -contains 'Port') { $p = $_.Port }
+        $p -and -not [string]::IsNullOrWhiteSpace([string]$p) -and [int]$p -gt 0
+    })
 
             # Inline minimal HTML generation for the request handler scope
             $htmlContent = & {
