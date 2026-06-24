@@ -162,14 +162,16 @@ function Remove-AllPsmuxWindows {
 }
 
 function Connect-PsmuxSession {
+    param([string]$WindowName = '')
     if (-not (Test-PsmuxSessionExists)) {
         Write-Color $script:YELLOW "No psmux session found. Start some apps first."
         return
     }
+    $target = if ($WindowName) { "$($global:PSMUX_SESSION_NAME):$WindowName" } else { $global:PSMUX_SESSION_NAME }
     if (Test-InPsmux) {
-        & psmux switch-client -t $global:PSMUX_SESSION_NAME 2>&1 | Out-Null
+        & psmux switch-client -t $target 2>&1 | Out-Null
     } else {
-        & psmux attach-session -t $global:PSMUX_SESSION_NAME 2>&1 | Out-Null
+        & psmux attach-session -t $target 2>&1 | Out-Null
     }
 }
 
@@ -178,10 +180,10 @@ function Select-PsmuxWindow {
     $winName = Get-SanitizedWindowName -Name $AppName
     if (-not (Test-PsmuxWindowExists -AppName $AppName)) {
         Write-Color $script:YELLOW "Window '$AppName' not found"
-        return $false
+        return $null
     }
     & psmux select-window -t "$($global:PSMUX_SESSION_NAME):$winName" 2>&1 | Out-Null
-    return $true
+    return $winName
 }
 
 function Write-Header {

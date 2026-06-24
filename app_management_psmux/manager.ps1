@@ -695,11 +695,11 @@ function Show-InteractiveMenu {
                 $attachIdx = [int]($Matches[1]) - 1
                 if ($attachIdx -ge 0 -and $attachIdx -lt $script:APPS_JSON.Count) {
                     $appName = $script:APPS_JSON[$attachIdx].Name
-                    if (Test-PsmuxWindowExists -AppName $appName) {
-                        Select-PsmuxWindow -AppName $appName | Out-Null
+                    $winName = Select-PsmuxWindow -AppName $appName
+                    if ($winName) {
                         Write-Color $script:CYAN "Attaching to psmux session... (Ctrl+B, D to detach)"
                         Start-Sleep -Seconds 1
-                        Connect-PsmuxSession
+                        Connect-PsmuxSession -WindowName $winName
                     } else {
                         Write-Color $script:YELLOW "Window for '$appName' is not running"
                     }
