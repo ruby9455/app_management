@@ -1,0 +1,11 @@
+[
+  {
+    "Name": "Example Streamlit App",
+    "Type": "Streamlit",
+    "Port": 8501,
+    "AppPath": "C:\\path\\to\\your\\app",
+    "IndexPath": "app.py",
+    "VenvPath": "C:\\path\\to\\your\\app\\.venv",
+    "PackageManager": "uv"
+  }
+]
